@@ -1,1 +1,9 @@
+# Dependencias (se instalan en GitHub Actions con npm install)
+node_modules/
 
+# Proyecto Android (se genera en GitHub Actions con npx cap add android)
+android/
+
+# Varios
+.DS_Store
+*.log
