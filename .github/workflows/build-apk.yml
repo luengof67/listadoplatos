@@ -1,1 +1,47 @@
+name: Construir APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Crear proyecto Android
+        run: npx cap add android
+
+      - name: Sincronizar la app
+        run: npx cap sync android
+
+      - name: Compilar APK (debug)
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Publicar el APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: recetario-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
 
