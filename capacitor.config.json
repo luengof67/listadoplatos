@@ -1,0 +1,8 @@
+{
+  "appId": "com.mirestaurante.listadoplatos",
+  "appName": "Listado de Platos",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
