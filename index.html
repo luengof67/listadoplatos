@@ -108,6 +108,34 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
 .tabla-al tr.fila-sub td{background:#EDF0E8;font-weight:600;font-size:11px;}
 .tabla-al td.nombre-plato{font-size:12px;}
 .tabla-al tbody tr:nth-child(even) td.nombre-plato,.tabla-al tbody tr:nth-child(even) td.celda{background:#FAFBF8;}
+/* ── Plantilla hotel bilingüe ── */
+.hoja-hotel{font-family:'Inter',Arial,sans-serif;}
+.hh-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.hh-logo{max-height:64px;max-width:230px;object-fit:contain;}
+.hh-nombre-resto{font-size:22px;font-weight:700;color:#20291F;}
+.hh-marca{font-size:15px;color:#20291F;font-weight:600;margin-top:6px;}
+.hh-linea-titulo{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:20px;flex-wrap:wrap;}
+.hh-titulo{font-size:23px;font-weight:700;color:#20291F;}
+.hh-fecha{font-size:13px;font-weight:600;color:#20291F;}
+.hoja-hotel h2.hh-seccion{font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em;
+  text-transform:none;color:#20291F;text-align:center;margin:30px auto 14px;display:table;
+  border-bottom:2px solid #20291F;padding:0 20px 6px;}
+.hoja-hotel h2.hh-seccion::after{display:none;}
+.ph{text-align:center;padding:7px 0;}
+.ph-nombre{font-size:16.5px;font-weight:700;color:#20291F;}
+.ph-nombre sup{color:#B23A3A;font-size:10px;font-weight:700;margin-left:4px;}
+.ph-en{font-size:12px;font-style:italic;color:#555;}
+.hh-nota{text-align:center;font-size:15px;font-weight:700;margin-top:32px;color:#20291F;}
+.hh-nota .en{display:block;font-weight:600;font-style:italic;font-size:13px;}
+.hh-precios{text-align:center;margin-top:20px;font-size:14px;font-weight:700;color:#20291F;}
+.hh-precios div{margin:3px 0;}
+.leyenda-hotel{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 16px;margin-top:34px;}
+.lh-item{display:flex;align-items:center;gap:3px;}
+.lh-num{font-size:24px;font-weight:300;color:#444;line-height:1;}
+.lh-cuerpo{display:flex;flex-direction:column;align-items:center;}
+.lh-cuerpo span{font-size:17px;line-height:1;}
+.lh-cuerpo small{font-size:8px;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-top:2px;max-width:70px;text-align:center;}
+.hh-pie{margin-top:26px;border-top:1px solid #999;border-bottom:1px solid #999;padding:7px 4px;text-align:center;font-size:11px;color:#333;line-height:1.5;}
 @media print{
   body > *{display:none !important;}
   body #capaImpresion{display:block !important;position:static;background:#fff;padding:0;overflow:visible;}
@@ -125,7 +153,7 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v9<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -142,6 +170,9 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
     <input id="buscador" class="campo" style="flex:1 1 220px;" placeholder="Buscar plato o ingrediente…">
     <select id="filtroAl" class="campo" style="flex:0 1 260px;"></select>
     <button id="btnNuevo" class="btn-verde" style="display:none;">+ Añadir plato</button>
+    <button id="btnEscanear" class="btn-linea" style="display:none;">📷 Desde foto</button>
+    <input type="file" id="fileEscanear" accept="image/*,application/pdf" style="display:none;">
+    <input type="file" id="fileEscanearCam" accept="image/*" capture="environment" style="display:none;">
   </div>
   <div id="notaFiltro" style="font-size:13px;color:var(--suave);margin-bottom:8px;display:none;"></div>
   <div id="lista"></div>
@@ -152,6 +183,64 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
 <div id="capaImpresion"></div>
 
 <script>
+/* ══════════════════════════════════════════════════════════
+   SINCRONIZACIÓN EN LA NUBE (opcional) — Firebase Firestore
+   ──────────────────────────────────────────────────────────
+   Si FIREBASE_CONFIG es null, la app funciona igual que siempre
+   (datos solo en el dispositivo). Para sincronizar varios móviles:
+
+   1) Crea un proyecto gratis en https://console.firebase.google.com
+   2) Dentro del proyecto: Compilación → Firestore Database → Crear
+      base de datos → empezar en modo de producción → ubicación
+      europe-west (o la más cercana).
+   3) En la pestaña "Reglas" de Firestore pega esto y publica:
+
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /restaurantes/{codigo}/{documento=**} {
+              allow read, write: if true;
+            }
+          }
+        }
+
+   4) Configuración del proyecto (rueda dentada) → Tus apps →
+      icono </> (app web) → registrar app → copia el objeto
+      firebaseConfig y pégalo abajo sustituyendo el null.
+   5) Cambia CODIGO_EQUIPO por un código largo y difícil de adivinar
+      (funciona como contraseña: quien lo tenga en su app comparte
+      el mismo recetario). Ej.: "laplaza-K93bTx41-recetario"
+   6) Sube el archivo al repo: todos los APK generados con el mismo
+      código quedarán sincronizados entre sí.
+   ══════════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBNSmPNSufNRs_pQlcZBzGESSsAhTq5cX4",
+  authDomain: "listadiplatos.firebaseapp.com",
+  projectId: "listadiplatos",
+  storageBucket: "listadiplatos.firebasestorage.app",
+  messagingSenderId: "979755835088",
+  appId: "1:979755835088:web:b411d4efa32170ae72c8d5"
+};
+const CODIGO_EQUIPO = "jose403060";
+
+/* ══════════════════════════════════════════════════════════
+   AÑADIR PLATOS DESDE FOTO (opcional) — API de Gemini
+   ──────────────────────────────────────────────────────────
+   Permite fotografiar una carta, ficha o pizarra y extraer los
+   platos con sus ingredientes automáticamente. Para activarlo:
+   1) Entra en https://aistudio.google.com/apikey con tu cuenta
+      de Google y pulsa "Crear clave de API" (elige tu proyecto
+      de Firebase o crea uno). Es gratis dentro de la capa gratuita.
+   2) Pega la clave abajo entre comillas, ej.: "AIzaSy...".
+   Si se deja en null, el botón de escanear no aparece y todo
+   lo demás funciona igual.
+   ══════════════════════════════════════════════════════════ */
+const GEMINI_API_KEY_BRUTA = "__CLAVE_GEMINI__";
+const GEMINI_API_KEY = (GEMINI_API_KEY_BRUTA && !GEMINI_API_KEY_BRUTA.includes("__CLAVE")) ? GEMINI_API_KEY_BRUTA : null;
+const GEMINI_MODELO = "gemini-3.5-flash";
+/* Si el modelo principal deja de existir, se prueban estos por orden: */
+const GEMINI_RESPALDO = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3-flash-preview"];
+
 /* ── Secciones ── */
 const SECCIONES = [
   { id:"menu", nombre:"Menú del día", icono:"🍽️", sub:[
@@ -177,6 +266,18 @@ const ALERGENOS = [
   {id:"altramuces",nombre:"Altramuces",icono:"🫛"},{id:"moluscos",nombre:"Moluscos",icono:"🦪"},
 ];
 const AL_MAP = Object.fromEntries(ALERGENOS.map(a => [a.id, a]));
+
+/* Numeración y nombres de alérgenos del menú impreso bilingüe (formato hotel) */
+const NUMERO_AL = { pescado:1, frutos_cascara:2, lacteos:3, moluscos:4, gluten:5, crustaceos:6, huevos:7, cacahuetes:8, soja:9, apio:10, mostaza:11, sesamo:12, altramuces:13, sulfitos:14 };
+const NOMBRE_NUM = { pescado:"Pescado", frutos_cascara:"Frutos secos", lacteos:"Lácteos", moluscos:"Moluscos", gluten:"Cereales con gluten", crustaceos:"Crustáceos", huevos:"Huevos", cacahuetes:"Cacahuetes", soja:"Soja", apio:"Apio", mostaza:"Mostaza", sesamo:"Sésamo", altramuces:"Altramuz", sulfitos:"Sulfitos" };
+const ORDEN_NUM = Object.entries(NUMERO_AL).sort((a,b) => a[1]-b[1]);
+function numerosAlergenos(p){
+  return p.alergenos.map(a => NUMERO_AL[a]).filter(Boolean).sort((x,y) => x-y).join("/");
+}
+function fechaHoyLarga(){
+  const f = new Date().toLocaleDateString("es-ES", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  return f.charAt(0).toUpperCase() + f.slice(1);
+}
 
 const PISTAS = [
   { al:"gluten", re:/harina|trigo|pan(?!ceta)|pasta|espagueti|macarr|fideo|cerveza|cebada|centeno|avena|espelta|rebozad|empanad|hojaldre|masa|picatoste|couscous|cuscús|bechamel|galleta|bizcocho/i },
@@ -242,8 +343,105 @@ async function stDel(k){
   if (HAY_CLAUDE){ try{ await window.storage.delete(k); }catch(e){} return; }
   try { await idb("readwrite", st => st.delete(k)); } catch(e){}
 }
-async function guardarPlatosStore(){ await stSet("platos-meta", JSON.stringify(platos)); }
-async function guardarMenusStore(){ await stSet("menus-v1", JSON.stringify(menus)); }
+async function guardarPlatosStore(){ await stSet("platos-meta", JSON.stringify(platos)); nubePlatos(); }
+async function guardarMenusStore(){ await stSet("menus-v1", JSON.stringify(menus)); nubeMenus(); }
+async function guardarFotoStore(id, data){ await stSet("foto:" + id, data); nubeFoto(id, data); }
+async function borrarFotoStore(id){ await stDel("foto:" + id); nubeFoto(id, null); }
+
+/* ── Sincronización con Firestore ── */
+let nube = null;
+let recibiendoNube = false;
+const baseNube = () => "restaurantes/" + CODIGO_EQUIPO;
+
+function pintarEstadoNube(estado){
+  const el = document.getElementById("estadoNube");
+  if (!el) return;
+  if (estado === "nube") el.textContent = " · ☁️ sincronizado";
+  else if (estado === "error") el.textContent = " · ⚠️ nube no disponible (funcionando en local)";
+  else el.textContent = " · 🔒 solo en este dispositivo";
+}
+
+async function iniciarNube(){
+  if (!FIREBASE_CONFIG){ pintarEstadoNube("local"); return; }
+  try {
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+    const f = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    let db;
+    try { db = f.initializeFirestore(app, { localCache: f.persistentLocalCache() }); }
+    catch(e){ db = f.getFirestore(app); }
+    nube = { db, f };
+
+    /* Platos: escucha en tiempo real */
+    f.onSnapshot(f.doc(db, baseNube() + "/datos/platos"), async snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      if (!snap.exists()){
+        /* La nube está vacía y aquí hay datos: subir lo local (primera vez) */
+        if (platos.length > 0){
+          nubePlatos(); nubeMenus();
+          for (const p of platos){
+            if (p.tieneFoto){
+              const foto = fotos[p.id] || await stGet("foto:" + p.id);
+              if (foto) nubeFoto(p.id, foto);
+            }
+          }
+        }
+        return;
+      }
+      try {
+        recibiendoNube = true;
+        platos = JSON.parse(snap.data().json || "[]");
+        await stSet("platos-meta", JSON.stringify(platos));
+        render();
+      } catch(e){} finally { recibiendoNube = false; }
+    }, () => pintarEstadoNube("error"));
+
+    /* Menús */
+    f.onSnapshot(f.doc(db, baseNube() + "/datos/menus"), async snap => {
+      if (snap.metadata.hasPendingWrites || !snap.exists()) return;
+      try {
+        recibiendoNube = true;
+        menus = JSON.parse(snap.data().json || "[]");
+        await stSet("menus-v1", JSON.stringify(menus));
+      } catch(e){} finally { recibiendoNube = false; }
+    });
+
+    /* Fotos */
+    f.onSnapshot(f.collection(db, baseNube() + "/fotos"), snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      let hayCambios = false;
+      snap.docChanges().forEach(ch => {
+        const id = ch.doc.id;
+        if (ch.type === "removed"){ delete fotos[id]; stDel("foto:" + id); hayCambios = true; }
+        else { const d = ch.doc.data().data; if (d){ fotos[id] = d; stSet("foto:" + id, d); hayCambios = true; } }
+      });
+      if (hayCambios) renderLista();
+    });
+
+    pintarEstadoNube("nube");
+  } catch(e){
+    pintarEstadoNube("error");
+  }
+}
+
+async function nubePlatos(){
+  if (!nube || recibiendoNube) return;
+  try { await nube.f.setDoc(nube.f.doc(nube.db, baseNube() + "/datos/platos"), { json: JSON.stringify(platos), t: Date.now() }); }
+  catch(e){ pintarEstadoNube("error"); }
+}
+async function nubeMenus(){
+  if (!nube || recibiendoNube) return;
+  try { await nube.f.setDoc(nube.f.doc(nube.db, baseNube() + "/datos/menus"), { json: JSON.stringify(menus), t: Date.now() }); }
+  catch(e){}
+}
+async function nubeFoto(id, data){
+  if (!nube || recibiendoNube) return;
+  try {
+    const ref = nube.f.doc(nube.db, baseNube() + "/fotos/" + id);
+    if (data) await nube.f.setDoc(ref, { data, t: Date.now() });
+    else await nube.f.deleteDoc(ref);
+  } catch(e){}
+}
 
 /* ── Compresión de imagen ── */
 function comprimirImagen(file){
@@ -406,7 +604,7 @@ async function borrarPlato(id){
   try {
     platos = platos.filter(p => p.id !== id);
     await guardarPlatosStore();
-    await stDel("foto:"+id);
+    await borrarFotoStore(id);
     delete fotos[id];
     cerrarModal(); render();
     notificar("Plato eliminado");
@@ -429,6 +627,10 @@ function abrirFormulario(id){
         <div>
           <label class="campo-lbl" for="fNombre">Nombre del plato *</label>
           <input class="campo" id="fNombre" value="${esc(p?.nombre || "")}" placeholder="Ej.: Merluza en salsa verde">
+        </div>
+        <div>
+          <label class="campo-lbl" for="fNombreEn">Nombre en inglés <span style="font-weight:400;color:var(--suave);">(opcional, para el menú bilingüe)</span></label>
+          <input class="campo" id="fNombreEn" value="${esc(p?.nombreEn || "")}" placeholder="Ej.: Hake in green sauce">
         </div>
         <div>
           <label class="campo-lbl" for="fSub">Sección *</label>
@@ -459,6 +661,7 @@ function abrirFormulario(id){
           <label class="campo-lbl">Fotografía (opcional)</label>
           <div id="fZonaFoto"></div>
           <input type="file" id="fFile" accept="image/*" style="display:none;">
+          <input type="file" id="fFileCam" accept="image/*" capture="environment" style="display:none;">
         </div>
         <div id="fError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
@@ -500,16 +703,22 @@ function abrirFormulario(id){
   }
   function pintarFoto(){
     if (foto){
-      $("fZonaFoto").innerHTML = `<div style="display:flex;gap:12px;align-items:center;">
+      $("fZonaFoto").innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <img src="${foto}" alt="Vista previa" style="width:110px;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--linea);">
-        <button class="btn-linea" id="fCambiar">Cambiar</button>
+        <button class="btn-linea" id="fCam" title="Hacer foto nueva">📷</button>
+        <button class="btn-linea" id="fGal" title="Elegir de la galería">🖼</button>
         <button class="btn-linea peligro" id="fQuitar">Quitar</button>
       </div>`;
-      $("fCambiar").onclick = () => $("fFile").click();
+      $("fCam").onclick = () => $("fFileCam").click();
+      $("fGal").onclick = () => $("fFile").click();
       $("fQuitar").onclick = () => { foto = null; fotoNueva = "BORRAR"; pintarFoto(); };
     } else {
-      $("fZonaFoto").innerHTML = `<button class="btn-linea" id="fSubir">📷 Subir foto</button>`;
-      $("fSubir").onclick = () => $("fFile").click();
+      $("fZonaFoto").innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn-linea" id="fCam">📷 Hacer foto</button>
+        <button class="btn-linea" id="fGal">🖼 Galería</button>
+      </div>`;
+      $("fCam").onclick = () => $("fFileCam").click();
+      $("fGal").onclick = () => $("fFile").click();
     }
   }
 
@@ -523,11 +732,14 @@ function abrirFormulario(id){
 
   $("fAddIng").onclick = agregarIngredientes;
   $("fIng").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); agregarIngredientes(); } });
-  $("fFile").onchange = async e => {
+  const manejarFotoElegida = async e => {
     const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
     try { const data = await comprimirImagen(file); foto = data; fotoNueva = data; pintarFoto(); }
     catch { mostrarError("No se pudo procesar la imagen. Prueba con otra foto."); }
   };
+  $("fFile").onchange = manejarFotoElegida;
+  $("fFileCam").onchange = manejarFotoElegida;
   $("fCancelar").onclick = cerrarModal;
 
   function mostrarError(msg){
@@ -546,6 +758,7 @@ function abrirFormulario(id){
     const obj = {
       id: p?.id || "p" + Date.now(),
       nombre,
+      nombreEn: $("fNombreEn").value.trim(),
       subseccion: $("fSub").value,
       descripcion: $("fDesc").value.trim(),
       ingredientes, alergenos,
@@ -556,10 +769,10 @@ function abrirFormulario(id){
       platos = existe ? platos.map(x => x.id === obj.id ? obj : x) : [...platos, obj];
       await guardarPlatosStore();
       if (fotoNueva && fotoNueva !== "BORRAR"){
-        await stSet("foto:" + obj.id, fotoNueva);
+        await guardarFotoStore(obj.id, fotoNueva);
         fotos[obj.id] = fotoNueva;
       } else if (fotoNueva === "BORRAR"){
-        await stDel("foto:" + obj.id);
+        await borrarFotoStore(obj.id);
         delete fotos[obj.id];
       }
       cerrarModal(); render();
@@ -619,7 +832,7 @@ function abrirListaMenus(){
   });
 }
 
-function abrirEditorMenu(id){
+async function abrirEditorMenu(id){
   if (platos.length === 0){
     notificar("Añade platos al recetario antes de crear un menú.");
     return;
@@ -628,6 +841,11 @@ function abrirEditorMenu(id){
   let apartados = m
     ? m.apartados.map(a => ({ titulo: a.titulo, platoIds: [...a.platoIds] }))
     : [{ titulo: "Primeros", platoIds: [] }, { titulo: "Segundos", platoIds: [] }, { titulo: "Postres", platoIds: [] }];
+  let logo = (await stGet("config-logo")) || null;
+  let logoNuevo = null; /* dataURL o "BORRAR" */
+  const marcaGuardada = (await stGet("config-marca")) || "";
+  const PIE_HOTEL = "Nuestro establecimiento cuenta con información disponible en materia de alergias e intolerancias alimentarias. · Information on food allergies and intolerances is available in our establishment.";
+  const PIE_CLASICO = "Pan, bebida y café incluidos. Si tiene alguna alergia o intolerancia, consulte a nuestro personal.";
 
   const capa = document.getElementById("capaModal");
   capa.innerHTML = `<div class="velo">
@@ -635,22 +853,51 @@ function abrirEditorMenu(id){
       <h2 class="display" style="font-size:22px;font-weight:700;margin:0;">${m ? "Editar menú" : "Nuevo menú"}</h2>
       <div style="display:grid;gap:14px;margin-top:16px;">
         <div>
+          <label class="campo-lbl" for="mPlantilla">Plantilla</label>
+          <select class="campo" id="mPlantilla">
+            <option value="clasica"${(m?.plantilla || "clasica") === "clasica" ? " selected" : ""}>Clásica (elegante, con iconos)</option>
+            <option value="hotel"${m?.plantilla === "hotel" ? " selected" : ""}>Hotel bilingüe (números de alérgenos + inglés)</option>
+          </select>
+        </div>
+        <div>
           <label class="campo-lbl" for="mTitulo">Título del menú *</label>
           <input class="campo" id="mTitulo" value="${esc(m?.titulo || "Menú del día")}" placeholder="Ej.: Menú del día">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div>
-            <label class="campo-lbl" for="mSubtitulo">Subtítulo / restaurante</label>
+            <label class="campo-lbl" for="mSubtitulo">Nombre del restaurante</label>
             <input class="campo" id="mSubtitulo" value="${esc(m?.subtitulo || "")}" placeholder="Nombre del restaurante">
           </div>
           <div>
-            <label class="campo-lbl" for="mPrecio">Precio</label>
-            <input class="campo" id="mPrecio" value="${esc(m?.precio || "")}" placeholder="Ej.: 15,50 € IVA incluido">
+            <label class="campo-lbl" for="mPrecio">Precio (línea 1)</label>
+            <input class="campo" id="mPrecio" value="${esc(m?.precio || "")}" placeholder="Ej.: Precio en Cafetería: 16,00 € (IVA incluido)">
+          </div>
+        </div>
+        <div id="zonaHotel" style="display:none;border:1px dashed var(--linea);border-radius:12px;padding:12px;">
+          <div style="display:grid;gap:12px;">
+            <div>
+              <label class="campo-lbl" for="mPrecio2">Precio (línea 2, opcional)</label>
+              <input class="campo" id="mPrecio2" value="${esc(m?.precio2 || "")}" placeholder="Ej.: Precio en Restaurante: 20,00 € (IVA incluido)">
+            </div>
+            <div>
+              <label class="campo-lbl" for="mNotaCentral">Nota central (español · inglés)</label>
+              <input class="campo" id="mNotaCentral" value="${esc(m?.notaCentral ?? "Postre, pan y una bebida · Dessert, bread and one drink")}">
+            </div>
+            <div>
+              <label class="campo-lbl" for="mMarca">Texto superior derecho (opcional)</label>
+              <input class="campo" id="mMarca" value="${esc(marcaGuardada)}" placeholder="Ej.: by Sercotel">
+            </div>
+            <div>
+              <label class="campo-lbl">Logotipo (opcional, se guarda para todos los menús)</label>
+              <div id="mZonaLogo"></div>
+              <input type="file" id="mFileLogo" accept="image/*" style="display:none;">
+            </div>
+            <div style="font-size:12px;color:var(--suave);">💡 Consejo: nombra los apartados en bilingüe, ej. «Primer Plato · First Course». La traducción de cada plato se toma de su campo «Nombre en inglés» (el escáner la rellena solo).</div>
           </div>
         </div>
         <div>
-          <label class="campo-lbl" for="mFecha">Fecha o vigencia (opcional)</label>
-          <input class="campo" id="mFecha" value="${esc(m?.fecha || "")}" placeholder="Ej.: Semana del 13 al 17 de julio">
+          <label class="campo-lbl" for="mFecha">Fecha o vigencia (vacío = fecha de hoy en la plantilla hotel)</label>
+          <input class="campo" id="mFecha" value="${esc(m?.fecha || "")}" placeholder="Ej.: Viernes, 10 de julio de 2026">
         </div>
         <div>
           <label class="campo-lbl">Apartados y platos *</label>
@@ -659,7 +906,7 @@ function abrirEditorMenu(id){
         </div>
         <div>
           <label class="campo-lbl" for="mPie">Nota a pie de página (opcional)</label>
-          <input class="campo" id="mPie" value="${esc(m?.pie || "Pan, bebida y café incluidos. Si tiene alguna alergia o intolerancia, consulte a nuestro personal.")}">
+          <input class="campo" id="mPie" value="${esc(m?.pie ?? PIE_CLASICO)}">
         </div>
         <div id="mError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
@@ -671,6 +918,47 @@ function abrirEditorMenu(id){
   </div>`;
 
   const $ = x => document.getElementById(x);
+
+  function pintarLogo(){
+    if (logo){
+      $("mZonaLogo").innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <img src="${logo}" alt="Logo" style="max-height:50px;max-width:180px;object-fit:contain;border:1px solid var(--linea);border-radius:8px;padding:4px;background:#fff;">
+        <button class="btn-linea" id="mLogoCambiar" style="padding:6px 12px;">Cambiar</button>
+        <button class="btn-linea peligro" id="mLogoQuitar" style="padding:6px 12px;">Quitar</button>
+      </div>`;
+      $("mLogoCambiar").onclick = () => $("mFileLogo").click();
+      $("mLogoQuitar").onclick = () => { logo = null; logoNuevo = "BORRAR"; pintarLogo(); };
+    } else {
+      $("mZonaLogo").innerHTML = `<button class="btn-linea" id="mLogoSubir" style="padding:8px 14px;">🖼 Subir logotipo</button>`;
+      $("mLogoSubir").onclick = () => $("mFileLogo").click();
+    }
+  }
+  $("mFileLogo").onchange = async e => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try { const d = await comprimirImagen(file); logo = d; logoNuevo = d; pintarLogo(); }
+    catch { notificar("No se pudo procesar el logotipo."); }
+  };
+
+  function actualizarPlantilla(){
+    const esHotel = $("mPlantilla").value === "hotel";
+    $("zonaHotel").style.display = esHotel ? "block" : "none";
+    /* Si los textos siguen siendo los por defecto, cambiarlos al de la otra plantilla */
+    if (esHotel){
+      if ($("mTitulo").value === "Menú del día") $("mTitulo").value = "Menú Diario · Daily Menu";
+      if ($("mPie").value === PIE_CLASICO) $("mPie").value = PIE_HOTEL;
+      if (apartados.length === 3 && apartados[0].titulo === "Primeros" && apartados.every(a => a.platoIds.length === 0)){
+        apartados[0].titulo = "Primer Plato · First Course";
+        apartados[1].titulo = "Segundo Plato · Second Course";
+        apartados[2].titulo = "Postre · Dessert";
+        pintarApartados();
+      }
+    } else {
+      if ($("mTitulo").value === "Menú Diario · Daily Menu") $("mTitulo").value = "Menú del día";
+      if ($("mPie").value === PIE_HOTEL) $("mPie").value = PIE_CLASICO;
+    }
+  }
+  $("mPlantilla").onchange = actualizarPlantilla;
 
   function pintarApartados(){
     $("mApartados").innerHTML = apartados.map((a, i) => {
@@ -732,14 +1020,22 @@ function abrirEditorMenu(id){
     const obj = {
       id: m?.id || "m" + Date.now(),
       titulo,
+      plantilla: $("mPlantilla").value,
       subtitulo: $("mSubtitulo").value.trim(),
       precio: $("mPrecio").value.trim(),
+      precio2: $("mPrecio2").value.trim(),
+      notaCentral: $("mNotaCentral").value.trim(),
       fecha: $("mFecha").value.trim(),
       pie: $("mPie").value.trim(),
       apartados: apartados.filter(a => a.titulo.trim() || a.platoIds.length > 0)
         .map(a => ({ titulo: a.titulo.trim() || "Platos", platoIds: a.platoIds })),
     };
     try {
+      try {
+        await stSet("config-marca", $("mMarca").value.trim());
+        if (logoNuevo && logoNuevo !== "BORRAR") await stSet("config-logo", logoNuevo);
+        else if (logoNuevo === "BORRAR") await stDel("config-logo");
+      } catch(e){}
       const existe = menus.some(x => x.id === obj.id);
       menus = existe ? menus.map(x => x.id === obj.id ? obj : x) : [...menus, obj];
       await guardarMenusStore();
@@ -753,43 +1049,101 @@ function abrirEditorMenu(id){
   };
 
   pintarApartados();
+  pintarLogo();
+  actualizarPlantilla();
 }
 
 /* ── Vista previa e impresión ── */
-function previsualizarMenu(id){
+async function previsualizarMenu(id){
   const m = menus.find(x => x.id === id); if (!m) return;
 
-  const usados = new Set();
-  const bloques = m.apartados.map(a => {
-    const lineas = a.platoIds.map(pid => {
-      const p = platos.find(x => x.id === pid);
-      if (!p) return "";
-      p.alergenos.forEach(al => usados.add(al));
-      const iconos = p.alergenos.map(al => AL_MAP[al]?.icono || "").join(" ");
-      return `<div class="plato-linea">
-        <div>
-          <div class="plato-nombre">${esc(p.nombre)}</div>
-          ${p.descripcion ? `<div class="plato-desc">${esc(p.descripcion)}</div>` : ""}
-        </div>
-        <div class="plato-al">${iconos}</div>
-      </div>`;
-    }).join("");
-    if (!lineas) return "";
-    return `<h2>${esc(a.titulo)}</h2>${lineas}`;
-  }).join("");
-
-  const leyenda = [...usados].map(al => {
-    const a = AL_MAP[al]; if (!a) return "";
-    return `<div>${a.icono} ${esc(a.nombre)}</div>`;
-  }).join("");
-
   const capa = document.getElementById("capaImpresion");
-  capa.innerHTML = `
+  const barra = `
     <div class="barra-impresion">
       <button class="btn-linea" id="impVolver" style="background:#fff;">← Volver</button>
       <button class="btn-linea" id="impEditar" style="background:#fff;">Editar menú</button>
       <button class="btn-verde" id="impImprimir">🖨 Imprimir / Guardar PDF</button>
-    </div>
+    </div>`;
+
+  if (m.plantilla === "hotel"){
+    /* ── Plantilla hotel bilingüe ── */
+    const logo = (await stGet("config-logo")) || null;
+    const marca = (await stGet("config-marca")) || "";
+    const bloques = m.apartados.map(a => {
+      const lineas = a.platoIds.map(pid => {
+        const p = platos.find(x => x.id === pid);
+        if (!p) return "";
+        const nums = numerosAlergenos(p);
+        return `<div class="ph">
+          <div class="ph-nombre">${esc(p.nombre)}${nums ? `<sup>${nums}</sup>` : ""}</div>
+          ${p.nombreEn ? `<div class="ph-en">${esc(p.nombreEn)}</div>` : (p.descripcion ? `<div class="ph-en">${esc(p.descripcion)}</div>` : "")}
+        </div>`;
+      }).join("");
+      if (!lineas) return "";
+      return `<h2 class="hh-seccion">${esc(a.titulo)}</h2>${lineas}`;
+    }).join("");
+
+    const notaPartes = (m.notaCentral || "").split("·").map(s => s.trim()).filter(Boolean);
+    const nota = notaPartes.length
+      ? `<div class="hh-nota">${esc(notaPartes[0])}${notaPartes[1] ? `<span class="en">${esc(notaPartes.slice(1).join(" · "))}</span>` : ""}</div>`
+      : "";
+    const leyenda = `<div class="leyenda-hotel">
+      ${ORDEN_NUM.map(([alId, num]) => `<div class="lh-item">
+        <span class="lh-num">${num}</span>
+        <span class="lh-cuerpo"><span>${AL_MAP[alId].icono}</span><small>${esc(NOMBRE_NUM[alId])}</small></span>
+      </div>`).join("")}
+    </div>`;
+    const piePartes = (m.pie || "").split("·").map(s => s.trim()).filter(Boolean);
+    const pie = piePartes.length
+      ? `<div class="hh-pie">${piePartes.map(t => esc(t)).join("<br>")}</div>`
+      : "";
+
+    capa.innerHTML = barra + `
+    <div class="hoja hoja-hotel">
+      <div class="hh-top">
+        <div>${logo ? `<img class="hh-logo" src="${logo}" alt="Logo">` : `<div class="hh-nombre-resto">${esc(m.subtitulo || "")}</div>`}</div>
+        <div class="hh-marca">${esc(marca)}</div>
+      </div>
+      <div class="hh-linea-titulo">
+        <div class="hh-titulo">${esc(m.titulo)}</div>
+        <div class="hh-fecha">${esc(m.fecha || fechaHoyLarga())}</div>
+      </div>
+      ${bloques}
+      ${nota}
+      <div class="hh-precios">
+        ${m.precio ? `<div>${esc(m.precio)}</div>` : ""}
+        ${m.precio2 ? `<div>${esc(m.precio2)}</div>` : ""}
+      </div>
+      ${leyenda}
+      ${pie}
+    </div>`;
+  } else {
+    /* ── Plantilla clásica ── */
+    const usados = new Set();
+    const bloques = m.apartados.map(a => {
+      const lineas = a.platoIds.map(pid => {
+        const p = platos.find(x => x.id === pid);
+        if (!p) return "";
+        p.alergenos.forEach(al => usados.add(al));
+        const iconos = p.alergenos.map(al => AL_MAP[al]?.icono || "").join(" ");
+        return `<div class="plato-linea">
+          <div>
+            <div class="plato-nombre">${esc(p.nombre)}</div>
+            ${p.descripcion ? `<div class="plato-desc">${esc(p.descripcion)}</div>` : ""}
+          </div>
+          <div class="plato-al">${iconos}</div>
+        </div>`;
+      }).join("");
+      if (!lineas) return "";
+      return `<h2>${esc(a.titulo)}</h2>${lineas}`;
+    }).join("");
+
+    const leyenda = [...usados].map(al => {
+      const a = AL_MAP[al]; if (!a) return "";
+      return `<div>${a.icono} ${esc(a.nombre)}</div>`;
+    }).join("");
+
+    capa.innerHTML = barra + `
     <div class="hoja">
       <div class="cab">
         ${m.subtitulo ? `<div class="resto">${esc(m.subtitulo)}</div>` : ""}
@@ -804,11 +1158,13 @@ function previsualizarMenu(id){
       </div>` : ""}
       ${m.pie ? `<div class="pie">${esc(m.pie)}</div>` : ""}
     </div>`;
+  }
+
   fijarOrientacion(false);
   document.body.classList.add("previsualizando");
   document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
   document.getElementById("impEditar").onclick = () => { cerrarPrevisualizacion(); abrirEditorMenu(id); };
-  document.getElementById("impImprimir").onclick = () => window.print();
+  document.getElementById("impImprimir").onclick = () => imprimir(m.titulo || "menu");
 }
 function cerrarPrevisualizacion(){
   document.body.classList.remove("previsualizando");
@@ -820,6 +1176,17 @@ function fijarOrientacion(apaisado){
   let st = document.getElementById("estiloPagina");
   if (!st){ st = document.createElement("style"); st.id = "estiloPagina"; document.head.appendChild(st); }
   st.textContent = "@media print{@page{size:A4 " + (apaisado ? "landscape" : "portrait") + ";margin:10mm;}}";
+}
+
+/* Impresión: en la app Android usa el diálogo nativo (plugin);
+   en un navegador normal usa window.print() */
+async function imprimir(nombreArchivo){
+  const wp = window.Capacitor?.Plugins?.WebviewPrint;
+  if (wp){
+    try { await wp.print({ name: nombreArchivo }); return; }
+    catch(e){ /* si el plugin falla, probamos el método clásico */ }
+  }
+  window.print();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -923,7 +1290,248 @@ function previsualizarCuadro(nombre, seccionesSel){
   fijarOrientacion(true);
   document.body.classList.add("previsualizando");
   document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
-  document.getElementById("impImprimir").onclick = () => window.print();
+  document.getElementById("impImprimir").onclick = () => imprimir(document.querySelector(".hoja h1")?.textContent?.trim() || "documento");
+}
+
+/* ══════════════════════════════════════════════════════════
+   AÑADIR PLATOS DESDE FOTOGRAFÍA (Gemini)
+   ══════════════════════════════════════════════════════════ */
+async function llamarGemini(base64, prompt, mime){
+  /* Prueba el modelo configurado y, si Google lo ha retirado, los de respaldo */
+  const modelos = [...new Set([GEMINI_MODELO, ...GEMINI_RESPALDO])];
+  let ultimoError = "sin conexión";
+  for (const modelo of modelos){
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { inline_data: { mime_type: mime || "image/jpeg", data: base64 } },
+            { text: prompt }
+          ]}]
+        })
+      });
+      if (resp.ok) return await resp.json();
+      const err = await resp.json().catch(() => ({}));
+      ultimoError = err?.error?.message || ("HTTP " + resp.status);
+      /* Si el modelo no existe o fue retirado, probar el siguiente; otros errores (clave inválida, cuota) no se reintentan */
+      const msg = ultimoError.toLowerCase();
+      if (!(resp.status === 404 || msg.includes("no longer available") || msg.includes("not found") || msg.includes("deprecated"))) break;
+    } catch(e){
+      ultimoError = e.message || "error de red";
+      break;
+    }
+  }
+  throw new Error(ultimoError);
+}
+
+function archivoABase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(String(e.target.result).split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function escanearImagen(file){
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo">
+    <div class="modal" style="padding:30px 24px;text-align:center;">
+      <div style="font-size:36px;">📷</div>
+      <div class="display" style="font-size:20px;font-weight:600;margin-top:8px;">Leyendo el documento…</div>
+      <div style="font-size:13px;color:var(--suave);margin-top:6px;">Detectando platos, secciones e ingredientes. Suele tardar unos segundos.</div>
+    </div>
+  </div>`;
+  try {
+    const esPdf = file.type === "application/pdf";
+    let base64, mime;
+    if (esPdf){ base64 = await archivoABase64(file); mime = "application/pdf"; }
+    else { const dataUrl = await comprimirImagen(file); base64 = dataUrl.split(",")[1]; mime = "image/jpeg"; }
+
+    const listaSecciones = SECCIONES.map(s => s.sub.map(sub => `"${sub.id}" = ${s.nombre} / ${sub.nombre}`).join("; ")).join("; ");
+    const prompt = `Analiza este documento de un restaurante español (carta, menú del día, ficha de cocina, pizarra o lista manuscrita).
+Extrae TODOS los platos que aparezcan. Para cada plato:
+- "nombre": el nombre del plato tal como aparece.
+- "nombre_en": traducción breve y natural del nombre del plato al inglés (si el documento ya la incluye, usa esa).
+- "descripcion": breve, solo si el documento la incluye; si no, "".
+- "seccion": clasifícalo según el apartado del documento donde aparece (por ejemplo bajo el título "Primeros" o "Segundos") o dedúcelo por el tipo de plato. Usa EXACTAMENTE uno de estos identificadores: ${listaSecciones}.
+- "ingredientes": los ingredientes escritos en el documento; si no aparecen, dedúcelos de forma razonable por el nombre del plato (sin cantidades, en minúsculas).
+Responde SOLO con un array JSON válido, sin texto adicional ni marcas de código:
+[{"nombre":"...","nombre_en":"...","descripcion":"","seccion":"primeros","ingredientes":["...","..."]}]
+Si no hay platos legibles, responde [].`;
+
+    const resp = await llamarGemini(base64, prompt, mime);
+    let texto = (resp?.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+    texto = texto.replace(/```json|```/g, "").trim();
+    const inicio = texto.indexOf("["), fin = texto.lastIndexOf("]");
+    if (inicio === -1 || fin === -1) throw new Error("respuesta sin JSON");
+    const detectados = JSON.parse(texto.slice(inicio, fin + 1));
+    if (!Array.isArray(detectados) || detectados.length === 0){
+      cerrarModal();
+      notificar("No se han detectado platos. Prueba con una imagen más nítida.");
+      return;
+    }
+    abrirRevisionEscaneo(detectados.map(d => {
+      const ings = Array.isArray(d.ingredientes) ? d.ingredientes.map(i => String(i).trim()).filter(Boolean) : [];
+      return {
+        incluir: true,
+        nombre: String(d.nombre || "").trim(),
+        nombreEn: String(d.nombre_en || "").trim(),
+        descripcion: String(d.descripcion || "").trim(),
+        ingredientes: ings,
+        subseccion: NOMBRE_SUB[d.seccion] ? d.seccion : "primeros",
+        alergenos: sugerirAlergenos(ings),
+        foto: null,
+      };
+    }).filter(d => d.nombre));
+  } catch(e){
+    cerrarModal();
+    notificar("No se pudo leer el documento: " + (e.message || "error de conexión"));
+  }
+}
+
+function abrirRevisionEscaneo(items){
+  const capa = document.getElementById("capaModal");
+  const opcionesSeccion = SECCIONES.map(s => `<optgroup label="${esc(s.nombre)}">
+    ${s.sub.map(sub => `<option value="${sub.id}">${esc(sub.nombre)}</option>`).join("")}
+  </optgroup>`).join("");
+  let fotoIndice = null; /* a qué plato va la próxima foto */
+
+  capa.innerHTML = `<div class="velo">
+    <div class="modal ancho" onclick="event.stopPropagation()" style="padding:22px 24px 24px;">
+      <h2 class="display" style="font-size:22px;font-weight:700;margin:0;">Revisar platos detectados (${items.length})</h2>
+      <p style="font-size:13px;color:var(--suave);margin:8px 0 4px;">
+        Corrige lo que haga falta: nombre, sección, ingredientes, <strong>alérgenos</strong> (vienen premarcados según los ingredientes — confírmalos tú) y foto del plato si procede. Desmarca los que no quieras añadir.</p>
+      <div id="revLista" style="display:grid;gap:12px;margin-top:12px;"></div>
+      <div id="revError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;margin-top:10px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <button class="btn-linea" id="revCancelar">Cancelar</button>
+        <button class="btn-verde" id="revAnadir">Añadir seleccionados</button>
+      </div>
+      <input type="file" id="revFotoGal" accept="image/*" style="display:none;">
+      <input type="file" id="revFotoCam" accept="image/*" capture="environment" style="display:none;">
+    </div>
+  </div>`;
+
+  function pintar(){
+    document.getElementById("revLista").innerHTML = items.map((it, i) => `
+      <div class="apartado-menu" style="opacity:${it.incluir ? 1 : .45};">
+        <label class="fila-check" style="font-weight:600;">
+          <input type="checkbox" data-inc="${i}" ${it.incluir ? "checked" : ""}> <span>Añadir este plato</span>
+        </label>
+        <div style="display:grid;gap:8px;margin-top:6px;">
+          <input class="campo" data-nom="${i}" value="${esc(it.nombre)}" placeholder="Nombre del plato">
+          <select class="campo" data-sec="${i}">${opcionesSeccion}</select>
+          <textarea class="campo" data-ing="${i}" rows="2" placeholder="Ingredientes separados por comas">${esc(it.ingredientes.join(", "))}</textarea>
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Alérgenos:</div>
+            <div class="grupo-chips">
+              ${ALERGENOS.map(a => `<button class="btn-alergeno${it.alergenos.includes(a.id) ? " activo" : ""}" data-al="${i}:${a.id}" style="padding:3px 9px;font-size:12px;">${a.icono} ${esc(a.nombre)}</button>`).join("")}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            ${it.foto ? `<img src="${it.foto}" alt="" style="width:72px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--linea);">` : ""}
+            <button class="btn-linea" data-cam="${i}" style="padding:6px 12px;font-size:13px;">📷 Foto</button>
+            <button class="btn-linea" data-gal="${i}" style="padding:6px 12px;font-size:13px;">🖼 Galería</button>
+            ${it.foto ? `<button class="btn-linea peligro" data-sinfoto="${i}" style="padding:6px 12px;font-size:13px;">✕</button>` : ""}
+          </div>
+        </div>
+      </div>`).join("");
+
+    items.forEach((it, i) => {
+      const sel = document.querySelector(`[data-sec="${i}"]`);
+      if (sel) sel.value = it.subseccion;
+    });
+    document.querySelectorAll("[data-inc]").forEach(ch => ch.onchange = () => {
+      items[Number(ch.dataset.inc)].incluir = ch.checked; pintar();
+    });
+    document.querySelectorAll("[data-nom]").forEach(inp => inp.oninput = () => {
+      items[Number(inp.dataset.nom)].nombre = inp.value;
+    });
+    document.querySelectorAll("[data-sec]").forEach(sel => sel.onchange = () => {
+      items[Number(sel.dataset.sec)].subseccion = sel.value;
+    });
+    document.querySelectorAll("[data-ing]").forEach(ta => ta.onchange = () => {
+      const i = Number(ta.dataset.ing);
+      items[i].ingredientes = ta.value.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+      /* añade a lo marcado las sugerencias nuevas de los ingredientes editados */
+      sugerirAlergenos(items[i].ingredientes).forEach(a => {
+        if (!items[i].alergenos.includes(a)) items[i].alergenos.push(a);
+      });
+      pintar();
+    });
+    document.querySelectorAll("[data-al]").forEach(b => b.onclick = () => {
+      const [i, al] = b.dataset.al.split(":");
+      const it = items[Number(i)];
+      it.alergenos = it.alergenos.includes(al) ? it.alergenos.filter(x => x !== al) : [...it.alergenos, al];
+      pintar();
+    });
+    document.querySelectorAll("[data-cam]").forEach(b => b.onclick = () => {
+      fotoIndice = Number(b.dataset.cam); document.getElementById("revFotoCam").click();
+    });
+    document.querySelectorAll("[data-gal]").forEach(b => b.onclick = () => {
+      fotoIndice = Number(b.dataset.gal); document.getElementById("revFotoGal").click();
+    });
+    document.querySelectorAll("[data-sinfoto]").forEach(b => b.onclick = () => {
+      items[Number(b.dataset.sinfoto)].foto = null; pintar();
+    });
+  }
+
+  const manejarFotoRev = async e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || fotoIndice === null) return;
+    try {
+      items[fotoIndice].foto = await comprimirImagen(file);
+      pintar();
+    } catch { notificar("No se pudo procesar la imagen."); }
+  };
+  document.getElementById("revFotoGal").onchange = manejarFotoRev;
+  document.getElementById("revFotoCam").onchange = manejarFotoRev;
+
+  document.getElementById("revCancelar").onclick = cerrarModal;
+  document.getElementById("revAnadir").onclick = async () => {
+    const elegidos = items.filter(it => it.incluir && it.nombre.trim() && it.ingredientes.length > 0);
+    const err = document.getElementById("revError");
+    if (elegidos.length === 0){
+      err.textContent = "Marca al menos un plato con nombre e ingredientes.";
+      err.style.display = "block";
+      return;
+    }
+    err.style.display = "none";
+    const base = Date.now();
+    const nuevos = [];
+    elegidos.forEach((it, i) => {
+      const p = {
+        id: "p" + (base + i),
+        nombre: it.nombre.trim(),
+        nombreEn: it.nombreEn || "",
+        subseccion: it.subseccion,
+        descripcion: it.descripcion,
+        ingredientes: it.ingredientes,
+        alergenos: it.alergenos,
+        tieneFoto: !!it.foto,
+      };
+      platos.push(p);
+      if (it.foto) nuevos.push({ id: p.id, foto: it.foto });
+    });
+    try {
+      await guardarPlatosStore();
+      for (const n of nuevos){
+        fotos[n.id] = n.foto;
+        await guardarFotoStore(n.id, n.foto);
+      }
+      cerrarModal(); render();
+      notificar(elegidos.length + " plato(s) añadidos al recetario");
+    } catch {
+      err.textContent = "No se pudo guardar. Inténtalo de nuevo.";
+      err.style.display = "block";
+    }
+  };
+
+  pintar();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -992,7 +1600,7 @@ function abrirCopia(){
       await guardarPlatosStore();
       await guardarMenusStore();
       for (const [id, f] of Object.entries(datos.fotos || {})){
-        await stSet("foto:" + id, f);
+        await guardarFotoStore(id, f);
         fotos[id] = f;
       }
       render();
@@ -1012,9 +1620,56 @@ document.getElementById("btnModo").onclick = () => {
   b.textContent = modo === "consulta" ? "✎ Modo edición" : "👁 Modo consulta";
   b.style.background = modo === "edicion" ? "rgba(255,255,255,.18)" : "transparent";
   document.getElementById("btnNuevo").style.display = modo === "edicion" ? "inline-block" : "none";
+  document.getElementById("btnEscanear").style.display = (modo === "edicion" && GEMINI_API_KEY) ? "inline-block" : "none";
   render();
 };
-document.getElementById("btnNuevo").onclick = () => abrirFormulario(null);
+document.getElementById("btnNuevo").onclick = () => {
+  if (!GEMINI_API_KEY){ abrirFormulario(null); return; }
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo" id="veloNuevo">
+    <div class="modal" onclick="event.stopPropagation()" style="padding:22px 24px 24px;">
+      <h2 class="display" style="font-size:20px;font-weight:700;margin:0 0 6px;">Añadir plato</h2>
+      <p style="font-size:13px;color:var(--suave);margin:0 0 14px;">¿Cómo quieres añadirlo?</p>
+      <div style="display:grid;gap:10px;">
+        <button class="btn-verde" id="nuevoMano" style="padding:14px;">✍️ Crear a mano</button>
+        <button class="btn-verde" id="nuevoCam" style="padding:14px;">📷 Fotografiar carta o menú</button>
+        <button class="btn-linea" id="nuevoDoc" style="padding:13px;">🖼 Desde imagen o PDF de la galería</button>
+        <button class="btn-linea" id="nuevoCancelar" style="border-color:var(--linea);color:var(--suave);">Cancelar</button>
+      </div>
+      <p style="font-size:12px;color:var(--suave);margin:12px 0 0;">Con foto o documento se detectan todos los platos que aparezcan (un menú entero de una vez) y los revisas antes de guardar.</p>
+    </div>
+  </div>`;
+  document.getElementById("veloNuevo").onclick = cerrarModal;
+  document.getElementById("nuevoCancelar").onclick = cerrarModal;
+  document.getElementById("nuevoMano").onclick = () => { cerrarModal(); abrirFormulario(null); };
+  document.getElementById("nuevoCam").onclick = () => document.getElementById("fileEscanearCam").click();
+  document.getElementById("nuevoDoc").onclick = () => document.getElementById("fileEscanear").click();
+};
+document.getElementById("btnEscanear").onclick = () => {
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo" id="veloEsc">
+    <div class="modal" onclick="event.stopPropagation()" style="padding:22px 24px 24px;">
+      <h2 class="display" style="font-size:20px;font-weight:700;margin:0 0 6px;">Añadir platos desde foto</h2>
+      <p style="font-size:13px;color:var(--suave);margin:0 0 14px;">Fotografía una carta, ficha o pizarra, o elige una imagen que ya tengas.</p>
+      <div style="display:grid;gap:10px;">
+        <button class="btn-verde" id="escCamara" style="padding:14px;">📷 Hacer foto con la cámara</button>
+        <button class="btn-linea" id="escGaleria" style="padding:13px;">🖼 Elegir de la galería</button>
+        <button class="btn-linea" id="escCancelar" style="border-color:var(--linea);color:var(--suave);">Cancelar</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById("veloEsc").onclick = cerrarModal;
+  document.getElementById("escCancelar").onclick = cerrarModal;
+  document.getElementById("escCamara").onclick = () => document.getElementById("fileEscanearCam").click();
+  document.getElementById("escGaleria").onclick = () => document.getElementById("fileEscanear").click();
+};
+["fileEscanear", "fileEscanearCam"].forEach(id => {
+  document.getElementById(id).onchange = e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) escanearImagen(file);
+  };
+});
 document.getElementById("btnMenus").onclick = abrirListaMenus;
 document.getElementById("buscador").addEventListener("input", e => { busqueda = e.target.value; renderLista(); });
 
@@ -1030,6 +1685,7 @@ selAl.onchange = e => { filtroAl = e.target.value; renderLista(); };
   try { platos = pRaw ? JSON.parse(pRaw) : []; } catch { platos = []; }
   try { menus = mRaw ? JSON.parse(mRaw) : []; } catch { menus = []; }
   render();
+  iniciarNube();
   for (const p of platos){
     if (p.tieneFoto){
       const f = await stGet("foto:" + p.id);
