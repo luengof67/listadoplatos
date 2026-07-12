@@ -144,6 +144,7 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
     <button id="btnNuevo" class="btn-verde" style="display:none;">+ Añadir plato</button>
     <button id="btnEscanear" class="btn-linea" style="display:none;">📷 Desde foto</button>
     <input type="file" id="fileEscanear" accept="image/*" style="display:none;">
+    <input type="file" id="fileEscanearCam" accept="image/*" capture="environment" style="display:none;">
   </div>
   <div id="notaFiltro" style="font-size:13px;color:var(--suave);margin-bottom:8px;display:none;"></div>
   <div id="lista"></div>
@@ -193,7 +194,6 @@ const FIREBASE_CONFIG = {
   appId: "1:979755835088:web:b411d4efa32170ae72c8d5"
 };
 const CODIGO_EQUIPO = "jose403060";
-
 /* ══════════════════════════════════════════════════════════
    AÑADIR PLATOS DESDE FOTO (opcional) — API de Gemini
    ──────────────────────────────────────────────────────────
@@ -208,9 +208,9 @@ const CODIGO_EQUIPO = "jose403060";
    ══════════════════════════════════════════════════════════ */
 const GEMINI_API_KEY_BRUTA = "__CLAVE_GEMINI__";
 const GEMINI_API_KEY = (GEMINI_API_KEY_BRUTA && !GEMINI_API_KEY_BRUTA.includes("__CLAVE")) ? GEMINI_API_KEY_BRUTA : null;
-const GEMINI_MODELO = "gemini-2.5-flash";
-
-/* ── Secciones ── */
+const GEMINI_MODELO = "gemini-3.5-flash";
+/* Si el modelo principal deja de existir, se prueban estos por orden: */
+const GEMINI_RESPALDO = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3-flash-preview"];/* ── Secciones ── */
 const SECCIONES = [
   { id:"menu", nombre:"Menú del día", icono:"🍽️", sub:[
     {id:"primeros",nombre:"Primeros"},{id:"segundos",nombre:"Segundos"},{id:"postres_menu",nombre:"Postres"}]},
@@ -614,6 +614,7 @@ function abrirFormulario(id){
           <label class="campo-lbl">Fotografía (opcional)</label>
           <div id="fZonaFoto"></div>
           <input type="file" id="fFile" accept="image/*" style="display:none;">
+          <input type="file" id="fFileCam" accept="image/*" capture="environment" style="display:none;">
         </div>
         <div id="fError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
@@ -655,16 +656,22 @@ function abrirFormulario(id){
   }
   function pintarFoto(){
     if (foto){
-      $("fZonaFoto").innerHTML = `<div style="display:flex;gap:12px;align-items:center;">
+      $("fZonaFoto").innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <img src="${foto}" alt="Vista previa" style="width:110px;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--linea);">
-        <button class="btn-linea" id="fCambiar">Cambiar</button>
+        <button class="btn-linea" id="fCam" title="Hacer foto nueva">📷</button>
+        <button class="btn-linea" id="fGal" title="Elegir de la galería">🖼</button>
         <button class="btn-linea peligro" id="fQuitar">Quitar</button>
       </div>`;
-      $("fCambiar").onclick = () => $("fFile").click();
+      $("fCam").onclick = () => $("fFileCam").click();
+      $("fGal").onclick = () => $("fFile").click();
       $("fQuitar").onclick = () => { foto = null; fotoNueva = "BORRAR"; pintarFoto(); };
     } else {
-      $("fZonaFoto").innerHTML = `<button class="btn-linea" id="fSubir">📷 Subir foto</button>`;
-      $("fSubir").onclick = () => $("fFile").click();
+      $("fZonaFoto").innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn-linea" id="fCam">📷 Hacer foto</button>
+        <button class="btn-linea" id="fGal">🖼 Galería</button>
+      </div>`;
+      $("fCam").onclick = () => $("fFileCam").click();
+      $("fGal").onclick = () => $("fFile").click();
     }
   }
 
@@ -678,11 +685,14 @@ function abrirFormulario(id){
 
   $("fAddIng").onclick = agregarIngredientes;
   $("fIng").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); agregarIngredientes(); } });
-  $("fFile").onchange = async e => {
+  const manejarFotoElegida = async e => {
     const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
     try { const data = await comprimirImagen(file); foto = data; fotoNueva = data; pintarFoto(); }
     catch { mostrarError("No se pudo procesar la imagen. Prueba con otra foto."); }
   };
+  $("fFile").onchange = manejarFotoElegida;
+  $("fFileCam").onchange = manejarFotoElegida;
   $("fCancelar").onclick = cerrarModal;
 
   function mostrarError(msg){
@@ -1084,6 +1094,36 @@ function previsualizarCuadro(nombre, seccionesSel){
 /* ══════════════════════════════════════════════════════════
    AÑADIR PLATOS DESDE FOTOGRAFÍA (Gemini)
    ══════════════════════════════════════════════════════════ */
+async function llamarGemini(base64, prompt){
+  /* Prueba el modelo configurado y, si Google lo ha retirado, los de respaldo */
+  const modelos = [...new Set([GEMINI_MODELO, ...GEMINI_RESPALDO])];
+  let ultimoError = "sin conexión";
+  for (const modelo of modelos){
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { inline_data: { mime_type: "image/jpeg", data: base64 } },
+            { text: prompt }
+          ]}]
+        })
+      });
+      if (resp.ok) return await resp.json();
+      const err = await resp.json().catch(() => ({}));
+      ultimoError = err?.error?.message || ("HTTP " + resp.status);
+      /* Si el modelo no existe o fue retirado, probar el siguiente; otros errores (clave inválida, cuota) no se reintentan */
+      const msg = ultimoError.toLowerCase();
+      if (!(resp.status === 404 || msg.includes("no longer available") || msg.includes("not found") || msg.includes("deprecated"))) break;
+    } catch(e){
+      ultimoError = e.message || "error de red";
+      break;
+    }
+  }
+  throw new Error(ultimoError);
+}
+
 async function escanearImagen(file){
   const capa = document.getElementById("capaModal");
   capa.innerHTML = `<div class="velo">
@@ -1102,22 +1142,8 @@ Responde SOLO con un array JSON válido, sin texto adicional ni marcas de códig
 [{"nombre":"Nombre del plato","descripcion":"","ingredientes":["ingrediente1","ingrediente2"]}]
 Si un plato incluye descripción en la foto, ponla en "descripcion" (breve). Si no hay platos legibles, responde [].`;
 
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [
-          { inline_data: { mime_type: "image/jpeg", data: base64 } },
-          { text: prompt }
-        ]}]
-      })
-    });
-    if (!resp.ok){
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err?.error?.message || ("HTTP " + resp.status));
-    }
-    const data = await resp.json();
-    let texto = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+    const resp = await llamarGemini(base64, prompt);
+    let texto = (resp?.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
     texto = texto.replace(/```json|```/g, "").trim();
     const inicio = texto.indexOf("["), fin = texto.lastIndexOf("]");
     if (inicio === -1 || fin === -1) throw new Error("respuesta sin JSON");
@@ -1326,12 +1352,31 @@ document.getElementById("btnModo").onclick = () => {
   render();
 };
 document.getElementById("btnNuevo").onclick = () => abrirFormulario(null);
-document.getElementById("btnEscanear").onclick = () => document.getElementById("fileEscanear").click();
-document.getElementById("fileEscanear").onchange = e => {
-  const file = e.target.files?.[0];
-  e.target.value = "";
-  if (file) escanearImagen(file);
+document.getElementById("btnEscanear").onclick = () => {
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo" id="veloEsc">
+    <div class="modal" onclick="event.stopPropagation()" style="padding:22px 24px 24px;">
+      <h2 class="display" style="font-size:20px;font-weight:700;margin:0 0 6px;">Añadir platos desde foto</h2>
+      <p style="font-size:13px;color:var(--suave);margin:0 0 14px;">Fotografía una carta, ficha o pizarra, o elige una imagen que ya tengas.</p>
+      <div style="display:grid;gap:10px;">
+        <button class="btn-verde" id="escCamara" style="padding:14px;">📷 Hacer foto con la cámara</button>
+        <button class="btn-linea" id="escGaleria" style="padding:13px;">🖼 Elegir de la galería</button>
+        <button class="btn-linea" id="escCancelar" style="border-color:var(--linea);color:var(--suave);">Cancelar</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById("veloEsc").onclick = cerrarModal;
+  document.getElementById("escCancelar").onclick = cerrarModal;
+  document.getElementById("escCamara").onclick = () => document.getElementById("fileEscanearCam").click();
+  document.getElementById("escGaleria").onclick = () => document.getElementById("fileEscanear").click();
 };
+["fileEscanear", "fileEscanearCam"].forEach(id => {
+  document.getElementById(id).onchange = e => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) escanearImagen(file);
+  };
+});
 document.getElementById("btnMenus").onclick = abrirListaMenus;
 document.getElementById("buscador").addEventListener("input", e => { busqueda = e.target.value; renderLista(); });
 
