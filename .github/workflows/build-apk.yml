@@ -25,7 +25,8 @@ jobs:
 
       - name: Instalar dependencias
         run: npm install
-        - name: Usar firma fija (permite actualizar sin desinstalar)
+
+      - name: Usar firma fija (permite actualizar sin desinstalar)
         run: |
           mkdir -p $HOME/.android
           cp firma/debug.keystore $HOME/.android/debug.keystore
