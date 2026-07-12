@@ -108,6 +108,34 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
 .tabla-al tr.fila-sub td{background:#EDF0E8;font-weight:600;font-size:11px;}
 .tabla-al td.nombre-plato{font-size:12px;}
 .tabla-al tbody tr:nth-child(even) td.nombre-plato,.tabla-al tbody tr:nth-child(even) td.celda{background:#FAFBF8;}
+/* ── Plantilla hotel bilingüe ── */
+.hoja-hotel{font-family:'Inter',Arial,sans-serif;}
+.hh-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.hh-logo{max-height:64px;max-width:230px;object-fit:contain;}
+.hh-nombre-resto{font-size:22px;font-weight:700;color:#20291F;}
+.hh-marca{font-size:15px;color:#20291F;font-weight:600;margin-top:6px;}
+.hh-linea-titulo{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:20px;flex-wrap:wrap;}
+.hh-titulo{font-size:23px;font-weight:700;color:#20291F;}
+.hh-fecha{font-size:13px;font-weight:600;color:#20291F;}
+.hoja-hotel h2.hh-seccion{font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;letter-spacing:.02em;
+  text-transform:none;color:#20291F;text-align:center;margin:30px auto 14px;display:table;
+  border-bottom:2px solid #20291F;padding:0 20px 6px;}
+.hoja-hotel h2.hh-seccion::after{display:none;}
+.ph{text-align:center;padding:7px 0;}
+.ph-nombre{font-size:16.5px;font-weight:700;color:#20291F;}
+.ph-nombre sup{color:#B23A3A;font-size:10px;font-weight:700;margin-left:4px;}
+.ph-en{font-size:12px;font-style:italic;color:#555;}
+.hh-nota{text-align:center;font-size:15px;font-weight:700;margin-top:32px;color:#20291F;}
+.hh-nota .en{display:block;font-weight:600;font-style:italic;font-size:13px;}
+.hh-precios{text-align:center;margin-top:20px;font-size:14px;font-weight:700;color:#20291F;}
+.hh-precios div{margin:3px 0;}
+.leyenda-hotel{display:flex;flex-wrap:wrap;justify-content:center;gap:12px 16px;margin-top:34px;}
+.lh-item{display:flex;align-items:center;gap:3px;}
+.lh-num{font-size:24px;font-weight:300;color:#444;line-height:1;}
+.lh-cuerpo{display:flex;flex-direction:column;align-items:center;}
+.lh-cuerpo span{font-size:17px;line-height:1;}
+.lh-cuerpo small{font-size:8px;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-top:2px;max-width:70px;text-align:center;}
+.hh-pie{margin-top:26px;border-top:1px solid #999;border-bottom:1px solid #999;padding:7px 4px;text-align:center;font-size:11px;color:#333;line-height:1.5;}
 @media print{
   body > *{display:none !important;}
   body #capaImpresion{display:block !important;position:static;background:#fff;padding:0;overflow:visible;}
@@ -125,7 +153,7 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v8<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v9<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -238,6 +266,18 @@ const ALERGENOS = [
   {id:"altramuces",nombre:"Altramuces",icono:"🫛"},{id:"moluscos",nombre:"Moluscos",icono:"🦪"},
 ];
 const AL_MAP = Object.fromEntries(ALERGENOS.map(a => [a.id, a]));
+
+/* Numeración y nombres de alérgenos del menú impreso bilingüe (formato hotel) */
+const NUMERO_AL = { pescado:1, frutos_cascara:2, lacteos:3, moluscos:4, gluten:5, crustaceos:6, huevos:7, cacahuetes:8, soja:9, apio:10, mostaza:11, sesamo:12, altramuces:13, sulfitos:14 };
+const NOMBRE_NUM = { pescado:"Pescado", frutos_cascara:"Frutos secos", lacteos:"Lácteos", moluscos:"Moluscos", gluten:"Cereales con gluten", crustaceos:"Crustáceos", huevos:"Huevos", cacahuetes:"Cacahuetes", soja:"Soja", apio:"Apio", mostaza:"Mostaza", sesamo:"Sésamo", altramuces:"Altramuz", sulfitos:"Sulfitos" };
+const ORDEN_NUM = Object.entries(NUMERO_AL).sort((a,b) => a[1]-b[1]);
+function numerosAlergenos(p){
+  return p.alergenos.map(a => NUMERO_AL[a]).filter(Boolean).sort((x,y) => x-y).join("/");
+}
+function fechaHoyLarga(){
+  const f = new Date().toLocaleDateString("es-ES", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+  return f.charAt(0).toUpperCase() + f.slice(1);
+}
 
 const PISTAS = [
   { al:"gluten", re:/harina|trigo|pan(?!ceta)|pasta|espagueti|macarr|fideo|cerveza|cebada|centeno|avena|espelta|rebozad|empanad|hojaldre|masa|picatoste|couscous|cuscús|bechamel|galleta|bizcocho/i },
@@ -589,6 +629,10 @@ function abrirFormulario(id){
           <input class="campo" id="fNombre" value="${esc(p?.nombre || "")}" placeholder="Ej.: Merluza en salsa verde">
         </div>
         <div>
+          <label class="campo-lbl" for="fNombreEn">Nombre en inglés <span style="font-weight:400;color:var(--suave);">(opcional, para el menú bilingüe)</span></label>
+          <input class="campo" id="fNombreEn" value="${esc(p?.nombreEn || "")}" placeholder="Ej.: Hake in green sauce">
+        </div>
+        <div>
           <label class="campo-lbl" for="fSub">Sección *</label>
           <select class="campo" id="fSub">
             ${SECCIONES.map(s => `<optgroup label="${esc(s.nombre)}">
@@ -714,6 +758,7 @@ function abrirFormulario(id){
     const obj = {
       id: p?.id || "p" + Date.now(),
       nombre,
+      nombreEn: $("fNombreEn").value.trim(),
       subseccion: $("fSub").value,
       descripcion: $("fDesc").value.trim(),
       ingredientes, alergenos,
@@ -787,7 +832,7 @@ function abrirListaMenus(){
   });
 }
 
-function abrirEditorMenu(id){
+async function abrirEditorMenu(id){
   if (platos.length === 0){
     notificar("Añade platos al recetario antes de crear un menú.");
     return;
@@ -796,6 +841,11 @@ function abrirEditorMenu(id){
   let apartados = m
     ? m.apartados.map(a => ({ titulo: a.titulo, platoIds: [...a.platoIds] }))
     : [{ titulo: "Primeros", platoIds: [] }, { titulo: "Segundos", platoIds: [] }, { titulo: "Postres", platoIds: [] }];
+  let logo = (await stGet("config-logo")) || null;
+  let logoNuevo = null; /* dataURL o "BORRAR" */
+  const marcaGuardada = (await stGet("config-marca")) || "";
+  const PIE_HOTEL = "Nuestro establecimiento cuenta con información disponible en materia de alergias e intolerancias alimentarias. · Information on food allergies and intolerances is available in our establishment.";
+  const PIE_CLASICO = "Pan, bebida y café incluidos. Si tiene alguna alergia o intolerancia, consulte a nuestro personal.";
 
   const capa = document.getElementById("capaModal");
   capa.innerHTML = `<div class="velo">
@@ -803,22 +853,51 @@ function abrirEditorMenu(id){
       <h2 class="display" style="font-size:22px;font-weight:700;margin:0;">${m ? "Editar menú" : "Nuevo menú"}</h2>
       <div style="display:grid;gap:14px;margin-top:16px;">
         <div>
+          <label class="campo-lbl" for="mPlantilla">Plantilla</label>
+          <select class="campo" id="mPlantilla">
+            <option value="clasica"${(m?.plantilla || "clasica") === "clasica" ? " selected" : ""}>Clásica (elegante, con iconos)</option>
+            <option value="hotel"${m?.plantilla === "hotel" ? " selected" : ""}>Hotel bilingüe (números de alérgenos + inglés)</option>
+          </select>
+        </div>
+        <div>
           <label class="campo-lbl" for="mTitulo">Título del menú *</label>
           <input class="campo" id="mTitulo" value="${esc(m?.titulo || "Menú del día")}" placeholder="Ej.: Menú del día">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div>
-            <label class="campo-lbl" for="mSubtitulo">Subtítulo / restaurante</label>
+            <label class="campo-lbl" for="mSubtitulo">Nombre del restaurante</label>
             <input class="campo" id="mSubtitulo" value="${esc(m?.subtitulo || "")}" placeholder="Nombre del restaurante">
           </div>
           <div>
-            <label class="campo-lbl" for="mPrecio">Precio</label>
-            <input class="campo" id="mPrecio" value="${esc(m?.precio || "")}" placeholder="Ej.: 15,50 € IVA incluido">
+            <label class="campo-lbl" for="mPrecio">Precio (línea 1)</label>
+            <input class="campo" id="mPrecio" value="${esc(m?.precio || "")}" placeholder="Ej.: Precio en Cafetería: 16,00 € (IVA incluido)">
+          </div>
+        </div>
+        <div id="zonaHotel" style="display:none;border:1px dashed var(--linea);border-radius:12px;padding:12px;">
+          <div style="display:grid;gap:12px;">
+            <div>
+              <label class="campo-lbl" for="mPrecio2">Precio (línea 2, opcional)</label>
+              <input class="campo" id="mPrecio2" value="${esc(m?.precio2 || "")}" placeholder="Ej.: Precio en Restaurante: 20,00 € (IVA incluido)">
+            </div>
+            <div>
+              <label class="campo-lbl" for="mNotaCentral">Nota central (español · inglés)</label>
+              <input class="campo" id="mNotaCentral" value="${esc(m?.notaCentral ?? "Postre, pan y una bebida · Dessert, bread and one drink")}">
+            </div>
+            <div>
+              <label class="campo-lbl" for="mMarca">Texto superior derecho (opcional)</label>
+              <input class="campo" id="mMarca" value="${esc(marcaGuardada)}" placeholder="Ej.: by Sercotel">
+            </div>
+            <div>
+              <label class="campo-lbl">Logotipo (opcional, se guarda para todos los menús)</label>
+              <div id="mZonaLogo"></div>
+              <input type="file" id="mFileLogo" accept="image/*" style="display:none;">
+            </div>
+            <div style="font-size:12px;color:var(--suave);">💡 Consejo: nombra los apartados en bilingüe, ej. «Primer Plato · First Course». La traducción de cada plato se toma de su campo «Nombre en inglés» (el escáner la rellena solo).</div>
           </div>
         </div>
         <div>
-          <label class="campo-lbl" for="mFecha">Fecha o vigencia (opcional)</label>
-          <input class="campo" id="mFecha" value="${esc(m?.fecha || "")}" placeholder="Ej.: Semana del 13 al 17 de julio">
+          <label class="campo-lbl" for="mFecha">Fecha o vigencia (vacío = fecha de hoy en la plantilla hotel)</label>
+          <input class="campo" id="mFecha" value="${esc(m?.fecha || "")}" placeholder="Ej.: Viernes, 10 de julio de 2026">
         </div>
         <div>
           <label class="campo-lbl">Apartados y platos *</label>
@@ -827,7 +906,7 @@ function abrirEditorMenu(id){
         </div>
         <div>
           <label class="campo-lbl" for="mPie">Nota a pie de página (opcional)</label>
-          <input class="campo" id="mPie" value="${esc(m?.pie || "Pan, bebida y café incluidos. Si tiene alguna alergia o intolerancia, consulte a nuestro personal.")}">
+          <input class="campo" id="mPie" value="${esc(m?.pie ?? PIE_CLASICO)}">
         </div>
         <div id="mError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
@@ -839,6 +918,47 @@ function abrirEditorMenu(id){
   </div>`;
 
   const $ = x => document.getElementById(x);
+
+  function pintarLogo(){
+    if (logo){
+      $("mZonaLogo").innerHTML = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <img src="${logo}" alt="Logo" style="max-height:50px;max-width:180px;object-fit:contain;border:1px solid var(--linea);border-radius:8px;padding:4px;background:#fff;">
+        <button class="btn-linea" id="mLogoCambiar" style="padding:6px 12px;">Cambiar</button>
+        <button class="btn-linea peligro" id="mLogoQuitar" style="padding:6px 12px;">Quitar</button>
+      </div>`;
+      $("mLogoCambiar").onclick = () => $("mFileLogo").click();
+      $("mLogoQuitar").onclick = () => { logo = null; logoNuevo = "BORRAR"; pintarLogo(); };
+    } else {
+      $("mZonaLogo").innerHTML = `<button class="btn-linea" id="mLogoSubir" style="padding:8px 14px;">🖼 Subir logotipo</button>`;
+      $("mLogoSubir").onclick = () => $("mFileLogo").click();
+    }
+  }
+  $("mFileLogo").onchange = async e => {
+    const file = e.target.files?.[0]; if (!file) return;
+    e.target.value = "";
+    try { const d = await comprimirImagen(file); logo = d; logoNuevo = d; pintarLogo(); }
+    catch { notificar("No se pudo procesar el logotipo."); }
+  };
+
+  function actualizarPlantilla(){
+    const esHotel = $("mPlantilla").value === "hotel";
+    $("zonaHotel").style.display = esHotel ? "block" : "none";
+    /* Si los textos siguen siendo los por defecto, cambiarlos al de la otra plantilla */
+    if (esHotel){
+      if ($("mTitulo").value === "Menú del día") $("mTitulo").value = "Menú Diario · Daily Menu";
+      if ($("mPie").value === PIE_CLASICO) $("mPie").value = PIE_HOTEL;
+      if (apartados.length === 3 && apartados[0].titulo === "Primeros" && apartados.every(a => a.platoIds.length === 0)){
+        apartados[0].titulo = "Primer Plato · First Course";
+        apartados[1].titulo = "Segundo Plato · Second Course";
+        apartados[2].titulo = "Postre · Dessert";
+        pintarApartados();
+      }
+    } else {
+      if ($("mTitulo").value === "Menú Diario · Daily Menu") $("mTitulo").value = "Menú del día";
+      if ($("mPie").value === PIE_HOTEL) $("mPie").value = PIE_CLASICO;
+    }
+  }
+  $("mPlantilla").onchange = actualizarPlantilla;
 
   function pintarApartados(){
     $("mApartados").innerHTML = apartados.map((a, i) => {
@@ -900,14 +1020,22 @@ function abrirEditorMenu(id){
     const obj = {
       id: m?.id || "m" + Date.now(),
       titulo,
+      plantilla: $("mPlantilla").value,
       subtitulo: $("mSubtitulo").value.trim(),
       precio: $("mPrecio").value.trim(),
+      precio2: $("mPrecio2").value.trim(),
+      notaCentral: $("mNotaCentral").value.trim(),
       fecha: $("mFecha").value.trim(),
       pie: $("mPie").value.trim(),
       apartados: apartados.filter(a => a.titulo.trim() || a.platoIds.length > 0)
         .map(a => ({ titulo: a.titulo.trim() || "Platos", platoIds: a.platoIds })),
     };
     try {
+      try {
+        await stSet("config-marca", $("mMarca").value.trim());
+        if (logoNuevo && logoNuevo !== "BORRAR") await stSet("config-logo", logoNuevo);
+        else if (logoNuevo === "BORRAR") await stDel("config-logo");
+      } catch(e){}
       const existe = menus.some(x => x.id === obj.id);
       menus = existe ? menus.map(x => x.id === obj.id ? obj : x) : [...menus, obj];
       await guardarMenusStore();
@@ -921,43 +1049,101 @@ function abrirEditorMenu(id){
   };
 
   pintarApartados();
+  pintarLogo();
+  actualizarPlantilla();
 }
 
 /* ── Vista previa e impresión ── */
-function previsualizarMenu(id){
+async function previsualizarMenu(id){
   const m = menus.find(x => x.id === id); if (!m) return;
 
-  const usados = new Set();
-  const bloques = m.apartados.map(a => {
-    const lineas = a.platoIds.map(pid => {
-      const p = platos.find(x => x.id === pid);
-      if (!p) return "";
-      p.alergenos.forEach(al => usados.add(al));
-      const iconos = p.alergenos.map(al => AL_MAP[al]?.icono || "").join(" ");
-      return `<div class="plato-linea">
-        <div>
-          <div class="plato-nombre">${esc(p.nombre)}</div>
-          ${p.descripcion ? `<div class="plato-desc">${esc(p.descripcion)}</div>` : ""}
-        </div>
-        <div class="plato-al">${iconos}</div>
-      </div>`;
-    }).join("");
-    if (!lineas) return "";
-    return `<h2>${esc(a.titulo)}</h2>${lineas}`;
-  }).join("");
-
-  const leyenda = [...usados].map(al => {
-    const a = AL_MAP[al]; if (!a) return "";
-    return `<div>${a.icono} ${esc(a.nombre)}</div>`;
-  }).join("");
-
   const capa = document.getElementById("capaImpresion");
-  capa.innerHTML = `
+  const barra = `
     <div class="barra-impresion">
       <button class="btn-linea" id="impVolver" style="background:#fff;">← Volver</button>
       <button class="btn-linea" id="impEditar" style="background:#fff;">Editar menú</button>
       <button class="btn-verde" id="impImprimir">🖨 Imprimir / Guardar PDF</button>
-    </div>
+    </div>`;
+
+  if (m.plantilla === "hotel"){
+    /* ── Plantilla hotel bilingüe ── */
+    const logo = (await stGet("config-logo")) || null;
+    const marca = (await stGet("config-marca")) || "";
+    const bloques = m.apartados.map(a => {
+      const lineas = a.platoIds.map(pid => {
+        const p = platos.find(x => x.id === pid);
+        if (!p) return "";
+        const nums = numerosAlergenos(p);
+        return `<div class="ph">
+          <div class="ph-nombre">${esc(p.nombre)}${nums ? `<sup>${nums}</sup>` : ""}</div>
+          ${p.nombreEn ? `<div class="ph-en">${esc(p.nombreEn)}</div>` : (p.descripcion ? `<div class="ph-en">${esc(p.descripcion)}</div>` : "")}
+        </div>`;
+      }).join("");
+      if (!lineas) return "";
+      return `<h2 class="hh-seccion">${esc(a.titulo)}</h2>${lineas}`;
+    }).join("");
+
+    const notaPartes = (m.notaCentral || "").split("·").map(s => s.trim()).filter(Boolean);
+    const nota = notaPartes.length
+      ? `<div class="hh-nota">${esc(notaPartes[0])}${notaPartes[1] ? `<span class="en">${esc(notaPartes.slice(1).join(" · "))}</span>` : ""}</div>`
+      : "";
+    const leyenda = `<div class="leyenda-hotel">
+      ${ORDEN_NUM.map(([alId, num]) => `<div class="lh-item">
+        <span class="lh-num">${num}</span>
+        <span class="lh-cuerpo"><span>${AL_MAP[alId].icono}</span><small>${esc(NOMBRE_NUM[alId])}</small></span>
+      </div>`).join("")}
+    </div>`;
+    const piePartes = (m.pie || "").split("·").map(s => s.trim()).filter(Boolean);
+    const pie = piePartes.length
+      ? `<div class="hh-pie">${piePartes.map(t => esc(t)).join("<br>")}</div>`
+      : "";
+
+    capa.innerHTML = barra + `
+    <div class="hoja hoja-hotel">
+      <div class="hh-top">
+        <div>${logo ? `<img class="hh-logo" src="${logo}" alt="Logo">` : `<div class="hh-nombre-resto">${esc(m.subtitulo || "")}</div>`}</div>
+        <div class="hh-marca">${esc(marca)}</div>
+      </div>
+      <div class="hh-linea-titulo">
+        <div class="hh-titulo">${esc(m.titulo)}</div>
+        <div class="hh-fecha">${esc(m.fecha || fechaHoyLarga())}</div>
+      </div>
+      ${bloques}
+      ${nota}
+      <div class="hh-precios">
+        ${m.precio ? `<div>${esc(m.precio)}</div>` : ""}
+        ${m.precio2 ? `<div>${esc(m.precio2)}</div>` : ""}
+      </div>
+      ${leyenda}
+      ${pie}
+    </div>`;
+  } else {
+    /* ── Plantilla clásica ── */
+    const usados = new Set();
+    const bloques = m.apartados.map(a => {
+      const lineas = a.platoIds.map(pid => {
+        const p = platos.find(x => x.id === pid);
+        if (!p) return "";
+        p.alergenos.forEach(al => usados.add(al));
+        const iconos = p.alergenos.map(al => AL_MAP[al]?.icono || "").join(" ");
+        return `<div class="plato-linea">
+          <div>
+            <div class="plato-nombre">${esc(p.nombre)}</div>
+            ${p.descripcion ? `<div class="plato-desc">${esc(p.descripcion)}</div>` : ""}
+          </div>
+          <div class="plato-al">${iconos}</div>
+        </div>`;
+      }).join("");
+      if (!lineas) return "";
+      return `<h2>${esc(a.titulo)}</h2>${lineas}`;
+    }).join("");
+
+    const leyenda = [...usados].map(al => {
+      const a = AL_MAP[al]; if (!a) return "";
+      return `<div>${a.icono} ${esc(a.nombre)}</div>`;
+    }).join("");
+
+    capa.innerHTML = barra + `
     <div class="hoja">
       <div class="cab">
         ${m.subtitulo ? `<div class="resto">${esc(m.subtitulo)}</div>` : ""}
@@ -972,11 +1158,13 @@ function previsualizarMenu(id){
       </div>` : ""}
       ${m.pie ? `<div class="pie">${esc(m.pie)}</div>` : ""}
     </div>`;
+  }
+
   fijarOrientacion(false);
   document.body.classList.add("previsualizando");
   document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
   document.getElementById("impEditar").onclick = () => { cerrarPrevisualizacion(); abrirEditorMenu(id); };
-  document.getElementById("impImprimir").onclick = () => imprimir(document.querySelector(".hoja h1")?.textContent?.trim() || "documento");
+  document.getElementById("impImprimir").onclick = () => imprimir(m.titulo || "menu");
 }
 function cerrarPrevisualizacion(){
   document.body.classList.remove("previsualizando");
@@ -1166,11 +1354,12 @@ async function escanearImagen(file){
     const prompt = `Analiza este documento de un restaurante español (carta, menú del día, ficha de cocina, pizarra o lista manuscrita).
 Extrae TODOS los platos que aparezcan. Para cada plato:
 - "nombre": el nombre del plato tal como aparece.
+- "nombre_en": traducción breve y natural del nombre del plato al inglés (si el documento ya la incluye, usa esa).
 - "descripcion": breve, solo si el documento la incluye; si no, "".
 - "seccion": clasifícalo según el apartado del documento donde aparece (por ejemplo bajo el título "Primeros" o "Segundos") o dedúcelo por el tipo de plato. Usa EXACTAMENTE uno de estos identificadores: ${listaSecciones}.
 - "ingredientes": los ingredientes escritos en el documento; si no aparecen, dedúcelos de forma razonable por el nombre del plato (sin cantidades, en minúsculas).
 Responde SOLO con un array JSON válido, sin texto adicional ni marcas de código:
-[{"nombre":"...","descripcion":"","seccion":"primeros","ingredientes":["...","..."]}]
+[{"nombre":"...","nombre_en":"...","descripcion":"","seccion":"primeros","ingredientes":["...","..."]}]
 Si no hay platos legibles, responde [].`;
 
     const resp = await llamarGemini(base64, prompt, mime);
@@ -1189,6 +1378,7 @@ Si no hay platos legibles, responde [].`;
       return {
         incluir: true,
         nombre: String(d.nombre || "").trim(),
+        nombreEn: String(d.nombre_en || "").trim(),
         descripcion: String(d.descripcion || "").trim(),
         ingredientes: ings,
         subseccion: NOMBRE_SUB[d.seccion] ? d.seccion : "primeros",
@@ -1317,6 +1507,7 @@ function abrirRevisionEscaneo(items){
       const p = {
         id: "p" + (base + i),
         nombre: it.nombre.trim(),
+        nombreEn: it.nombreEn || "",
         subseccion: it.subseccion,
         descripcion: it.descripcion,
         ingredientes: it.ingredientes,
