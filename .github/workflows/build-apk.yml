@@ -11,8 +11,7 @@ jobs:
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
-      - name: Inyectar clave de Gemini
-        run: sed -i 's|__CLAVE_GEMINI__|${{ secrets.GEMINI_API_KEY }}|' www/index.html
+
       - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,6 +32,9 @@ jobs:
       - name: Sincronizar la app
         run: npx cap sync android
 
+      - name: Generar iconos de la app
+        run: npx --yes @capacitor/assets generate --android
+
       - name: Compilar APK (debug)
         run: |
           chmod +x android/gradlew
@@ -45,4 +47,3 @@ jobs:
           name: recetario-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
