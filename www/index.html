@@ -142,6 +142,8 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
     <input id="buscador" class="campo" style="flex:1 1 220px;" placeholder="Buscar plato o ingrediente…">
     <select id="filtroAl" class="campo" style="flex:0 1 260px;"></select>
     <button id="btnNuevo" class="btn-verde" style="display:none;">+ Añadir plato</button>
+    <button id="btnEscanear" class="btn-linea" style="display:none;">📷 Desde foto</button>
+    <input type="file" id="fileEscanear" accept="image/*" style="display:none;">
   </div>
   <div id="notaFiltro" style="font-size:13px;color:var(--suave);margin-bottom:8px;display:none;"></div>
   <div id="lista"></div>
@@ -190,7 +192,25 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "979755835088",
   appId: "1:979755835088:web:b411d4efa32170ae72c8d5"
 };
-const CODIGO_EQUIPO = "jose403060";/* ── Secciones ── */
+const CODIGO_EQUIPO = "jose403060";
+
+/* ══════════════════════════════════════════════════════════
+   AÑADIR PLATOS DESDE FOTO (opcional) — API de Gemini
+   ──────────────────────────────────────────────────────────
+   Permite fotografiar una carta, ficha o pizarra y extraer los
+   platos con sus ingredientes automáticamente. Para activarlo:
+   1) Entra en https://aistudio.google.com/apikey con tu cuenta
+      de Google y pulsa "Crear clave de API" (elige tu proyecto
+      de Firebase o crea uno). Es gratis dentro de la capa gratuita.
+   2) Pega la clave abajo entre comillas, ej.: "AIzaSy...".
+   Si se deja en null, el botón de escanear no aparece y todo
+   lo demás funciona igual.
+   ══════════════════════════════════════════════════════════ */
+const GEMINI_API_KEY_BRUTA = "__CLAVE_GEMINI__";
+const GEMINI_API_KEY = (GEMINI_API_KEY_BRUTA && !GEMINI_API_KEY_BRUTA.includes("__CLAVE")) ? GEMINI_API_KEY_BRUTA : null;
+const GEMINI_MODELO = "gemini-2.5-flash";
+
+/* ── Secciones ── */
 const SECCIONES = [
   { id:"menu", nombre:"Menú del día", icono:"🍽️", sub:[
     {id:"primeros",nombre:"Primeros"},{id:"segundos",nombre:"Segundos"},{id:"postres_menu",nombre:"Postres"}]},
@@ -1062,6 +1082,161 @@ function previsualizarCuadro(nombre, seccionesSel){
 }
 
 /* ══════════════════════════════════════════════════════════
+   AÑADIR PLATOS DESDE FOTOGRAFÍA (Gemini)
+   ══════════════════════════════════════════════════════════ */
+async function escanearImagen(file){
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo">
+    <div class="modal" style="padding:30px 24px;text-align:center;">
+      <div style="font-size:36px;">📷</div>
+      <div class="display" style="font-size:20px;font-weight:600;margin-top:8px;">Leyendo la fotografía…</div>
+      <div style="font-size:13px;color:var(--suave);margin-top:6px;">Detectando platos e ingredientes. Suele tardar unos segundos.</div>
+    </div>
+  </div>`;
+  try {
+    const dataUrl = await comprimirImagen(file);
+    const base64 = dataUrl.split(",")[1];
+    const prompt = `Analiza esta fotografía de un documento de restaurante (carta, menú, ficha de cocina, pizarra o lista manuscrita) en español.
+Extrae los platos que aparezcan. Para cada plato deduce sus ingredientes: usa los que estén escritos y, si no aparecen, dedúcelos de forma razonable por el nombre del plato (sin cantidades, solo el nombre de cada ingrediente en minúsculas).
+Responde SOLO con un array JSON válido, sin texto adicional ni marcas de código, con este formato exacto:
+[{"nombre":"Nombre del plato","descripcion":"","ingredientes":["ingrediente1","ingrediente2"]}]
+Si un plato incluye descripción en la foto, ponla en "descripcion" (breve). Si no hay platos legibles, responde [].`;
+
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELO}:generateContent?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { inline_data: { mime_type: "image/jpeg", data: base64 } },
+          { text: prompt }
+        ]}]
+      })
+    });
+    if (!resp.ok){
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err?.error?.message || ("HTTP " + resp.status));
+    }
+    const data = await resp.json();
+    let texto = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+    texto = texto.replace(/```json|```/g, "").trim();
+    const inicio = texto.indexOf("["), fin = texto.lastIndexOf("]");
+    if (inicio === -1 || fin === -1) throw new Error("respuesta sin JSON");
+    const detectados = JSON.parse(texto.slice(inicio, fin + 1));
+    if (!Array.isArray(detectados) || detectados.length === 0){
+      cerrarModal();
+      notificar("No se han detectado platos en la foto. Prueba con una imagen más nítida.");
+      return;
+    }
+    abrirRevisionEscaneo(detectados.map(d => ({
+      incluir: true,
+      nombre: String(d.nombre || "").trim(),
+      descripcion: String(d.descripcion || "").trim(),
+      ingredientes: Array.isArray(d.ingredientes) ? d.ingredientes.map(i => String(i).trim()).filter(Boolean) : [],
+      subseccion: "primeros",
+    })).filter(d => d.nombre));
+  } catch(e){
+    cerrarModal();
+    notificar("No se pudo leer la foto: " + (e.message || "error de conexión"));
+  }
+}
+
+function abrirRevisionEscaneo(items){
+  const capa = document.getElementById("capaModal");
+  const opcionesSeccion = SECCIONES.map(s => `<optgroup label="${esc(s.nombre)}">
+    ${s.sub.map(sub => `<option value="${sub.id}">${esc(sub.nombre)}</option>`).join("")}
+  </optgroup>`).join("");
+
+  capa.innerHTML = `<div class="velo">
+    <div class="modal ancho" onclick="event.stopPropagation()" style="padding:22px 24px 24px;">
+      <h2 class="display" style="font-size:22px;font-weight:700;margin:0;">Revisar platos detectados</h2>
+      <p style="font-size:13px;color:var(--suave);margin:8px 0 4px;">
+        Corrige nombres e ingredientes, asigna la sección de cada plato y desmarca los que no quieras añadir.
+        Los alérgenos se deducirán de los ingredientes: <strong>revísalos después en cada ficha</strong>, la detección es orientativa.</p>
+      <div id="revLista" style="display:grid;gap:12px;margin-top:12px;"></div>
+      <div id="revError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;margin-top:10px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <button class="btn-linea" id="revCancelar">Cancelar</button>
+        <button class="btn-verde" id="revAnadir">Añadir seleccionados</button>
+      </div>
+    </div>
+  </div>`;
+
+  function pintar(){
+    document.getElementById("revLista").innerHTML = items.map((it, i) => {
+      const sug = sugerirAlergenos(it.ingredientes);
+      return `<div class="apartado-menu" style="opacity:${it.incluir ? 1 : .45};">
+        <label class="fila-check" style="font-weight:600;">
+          <input type="checkbox" data-inc="${i}" ${it.incluir ? "checked" : ""}> <span>Añadir este plato</span>
+        </label>
+        <div style="display:grid;gap:8px;margin-top:6px;">
+          <input class="campo" data-nom="${i}" value="${esc(it.nombre)}" placeholder="Nombre del plato">
+          <select class="campo" data-sec="${i}">${opcionesSeccion}</select>
+          <textarea class="campo" data-ing="${i}" rows="2" placeholder="Ingredientes separados por comas">${esc(it.ingredientes.join(", "))}</textarea>
+          <div style="font-size:12px;color:var(--suave);">
+            ${sug.length > 0
+              ? "Alérgenos que se marcarán: " + sug.map(a => AL_MAP[a].icono + " " + esc(AL_MAP[a].nombre)).join(", ")
+              : "No se detectan alérgenos en estos ingredientes."}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+
+    items.forEach((it, i) => {
+      const sel = document.querySelector(`[data-sec="${i}"]`);
+      if (sel) sel.value = it.subseccion;
+    });
+    document.querySelectorAll("[data-inc]").forEach(ch => ch.onchange = () => {
+      items[Number(ch.dataset.inc)].incluir = ch.checked; pintar();
+    });
+    document.querySelectorAll("[data-nom]").forEach(inp => inp.oninput = () => {
+      items[Number(inp.dataset.nom)].nombre = inp.value;
+    });
+    document.querySelectorAll("[data-sec]").forEach(sel => sel.onchange = () => {
+      items[Number(sel.dataset.sec)].subseccion = sel.value;
+    });
+    document.querySelectorAll("[data-ing]").forEach(ta => ta.onchange = () => {
+      const i = Number(ta.dataset.ing);
+      items[i].ingredientes = ta.value.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+      pintar();
+    });
+  }
+
+  document.getElementById("revCancelar").onclick = cerrarModal;
+  document.getElementById("revAnadir").onclick = async () => {
+    const elegidos = items.filter(it => it.incluir && it.nombre.trim() && it.ingredientes.length > 0);
+    const err = document.getElementById("revError");
+    if (elegidos.length === 0){
+      err.textContent = "Marca al menos un plato con nombre e ingredientes.";
+      err.style.display = "block";
+      return;
+    }
+    err.style.display = "none";
+    const base = Date.now();
+    elegidos.forEach((it, i) => {
+      platos.push({
+        id: "p" + (base + i),
+        nombre: it.nombre.trim(),
+        subseccion: it.subseccion,
+        descripcion: it.descripcion,
+        ingredientes: it.ingredientes,
+        alergenos: sugerirAlergenos(it.ingredientes),
+        tieneFoto: false,
+      });
+    });
+    try {
+      await guardarPlatosStore();
+      cerrarModal(); render();
+      notificar(elegidos.length + " plato(s) añadidos — revisa sus alérgenos");
+    } catch {
+      err.textContent = "No se pudo guardar. Inténtalo de nuevo.";
+      err.style.display = "block";
+    }
+  };
+
+  pintar();
+}
+
+/* ══════════════════════════════════════════════════════════
    COPIA DE SEGURIDAD (exportar / importar)
    ══════════════════════════════════════════════════════════ */
 function abrirCopia(){
@@ -1147,9 +1322,16 @@ document.getElementById("btnModo").onclick = () => {
   b.textContent = modo === "consulta" ? "✎ Modo edición" : "👁 Modo consulta";
   b.style.background = modo === "edicion" ? "rgba(255,255,255,.18)" : "transparent";
   document.getElementById("btnNuevo").style.display = modo === "edicion" ? "inline-block" : "none";
+  document.getElementById("btnEscanear").style.display = (modo === "edicion" && GEMINI_API_KEY) ? "inline-block" : "none";
   render();
 };
 document.getElementById("btnNuevo").onclick = () => abrirFormulario(null);
+document.getElementById("btnEscanear").onclick = () => document.getElementById("fileEscanear").click();
+document.getElementById("fileEscanear").onchange = e => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (file) escanearImagen(file);
+};
 document.getElementById("btnMenus").onclick = abrirListaMenus;
 document.getElementById("buscador").addEventListener("input", e => { busqueda = e.target.value; renderLista(); });
 
