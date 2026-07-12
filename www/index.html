@@ -125,7 +125,7 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v7 · v7<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v8<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -976,7 +976,7 @@ function previsualizarMenu(id){
   document.body.classList.add("previsualizando");
   document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
   document.getElementById("impEditar").onclick = () => { cerrarPrevisualizacion(); abrirEditorMenu(id); };
-  document.getElementById("impImprimir").onclick = () => window.print();
+  document.getElementById("impImprimir").onclick = () => imprimir(document.querySelector(".hoja h1")?.textContent?.trim() || "documento");
 }
 function cerrarPrevisualizacion(){
   document.body.classList.remove("previsualizando");
@@ -988,6 +988,17 @@ function fijarOrientacion(apaisado){
   let st = document.getElementById("estiloPagina");
   if (!st){ st = document.createElement("style"); st.id = "estiloPagina"; document.head.appendChild(st); }
   st.textContent = "@media print{@page{size:A4 " + (apaisado ? "landscape" : "portrait") + ";margin:10mm;}}";
+}
+
+/* Impresión: en la app Android usa el diálogo nativo (plugin);
+   en un navegador normal usa window.print() */
+async function imprimir(nombreArchivo){
+  const wp = window.Capacitor?.Plugins?.WebviewPrint;
+  if (wp){
+    try { await wp.print({ name: nombreArchivo }); return; }
+    catch(e){ /* si el plugin falla, probamos el método clásico */ }
+  }
+  window.print();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1091,7 +1102,7 @@ function previsualizarCuadro(nombre, seccionesSel){
   fijarOrientacion(true);
   document.body.classList.add("previsualizando");
   document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
-  document.getElementById("impImprimir").onclick = () => window.print();
+  document.getElementById("impImprimir").onclick = () => imprimir(document.querySelector(".hoja h1")?.textContent?.trim() || "documento");
 }
 
 /* ══════════════════════════════════════════════════════════
