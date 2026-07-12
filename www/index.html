@@ -125,7 +125,7 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -152,7 +152,45 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
 <div id="capaImpresion"></div>
 
 <script>
-/* ── Secciones ── */
+/* ══════════════════════════════════════════════════════════
+   SINCRONIZACIÓN EN LA NUBE (opcional) — Firebase Firestore
+   ──────────────────────────────────────────────────────────
+   Si FIREBASE_CONFIG es null, la app funciona igual que siempre
+   (datos solo en el dispositivo). Para sincronizar varios móviles:
+
+   1) Crea un proyecto gratis en https://console.firebase.google.com
+   2) Dentro del proyecto: Compilación → Firestore Database → Crear
+      base de datos → empezar en modo de producción → ubicación
+      europe-west (o la más cercana).
+   3) En la pestaña "Reglas" de Firestore pega esto y publica:
+
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /restaurantes/{codigo}/{documento=**} {
+              allow read, write: if true;
+            }
+          }
+        }
+
+   4) Configuración del proyecto (rueda dentada) → Tus apps →
+      icono </> (app web) → registrar app → copia el objeto
+      firebaseConfig y pégalo abajo sustituyendo el null.
+   5) Cambia CODIGO_EQUIPO por un código largo y difícil de adivinar
+      (funciona como contraseña: quien lo tenga en su app comparte
+      el mismo recetario). Ej.: "laplaza-K93bTx41-recetario"
+   6) Sube el archivo al repo: todos los APK generados con el mismo
+      código quedarán sincronizados entre sí.
+   ══════════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBNSmPNSufNRs_pQlcZBzGESSsAhTq5cX4",
+  authDomain: "listadiplatos.firebaseapp.com",
+  projectId: "listadiplatos",
+  storageBucket: "listadiplatos.firebasestorage.app",
+  messagingSenderId: "979755835088",
+  appId: "1:979755835088:web:b411d4efa32170ae72c8d5"
+};
+const CODIGO_EQUIPO = "jose403060";/* ── Secciones ── */
 const SECCIONES = [
   { id:"menu", nombre:"Menú del día", icono:"🍽️", sub:[
     {id:"primeros",nombre:"Primeros"},{id:"segundos",nombre:"Segundos"},{id:"postres_menu",nombre:"Postres"}]},
@@ -242,8 +280,105 @@ async function stDel(k){
   if (HAY_CLAUDE){ try{ await window.storage.delete(k); }catch(e){} return; }
   try { await idb("readwrite", st => st.delete(k)); } catch(e){}
 }
-async function guardarPlatosStore(){ await stSet("platos-meta", JSON.stringify(platos)); }
-async function guardarMenusStore(){ await stSet("menus-v1", JSON.stringify(menus)); }
+async function guardarPlatosStore(){ await stSet("platos-meta", JSON.stringify(platos)); nubePlatos(); }
+async function guardarMenusStore(){ await stSet("menus-v1", JSON.stringify(menus)); nubeMenus(); }
+async function guardarFotoStore(id, data){ await stSet("foto:" + id, data); nubeFoto(id, data); }
+async function borrarFotoStore(id){ await stDel("foto:" + id); nubeFoto(id, null); }
+
+/* ── Sincronización con Firestore ── */
+let nube = null;
+let recibiendoNube = false;
+const baseNube = () => "restaurantes/" + CODIGO_EQUIPO;
+
+function pintarEstadoNube(estado){
+  const el = document.getElementById("estadoNube");
+  if (!el) return;
+  if (estado === "nube") el.textContent = " · ☁️ sincronizado";
+  else if (estado === "error") el.textContent = " · ⚠️ nube no disponible (funcionando en local)";
+  else el.textContent = " · 🔒 solo en este dispositivo";
+}
+
+async function iniciarNube(){
+  if (!FIREBASE_CONFIG){ pintarEstadoNube("local"); return; }
+  try {
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+    const f = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    let db;
+    try { db = f.initializeFirestore(app, { localCache: f.persistentLocalCache() }); }
+    catch(e){ db = f.getFirestore(app); }
+    nube = { db, f };
+
+    /* Platos: escucha en tiempo real */
+    f.onSnapshot(f.doc(db, baseNube() + "/datos/platos"), async snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      if (!snap.exists()){
+        /* La nube está vacía y aquí hay datos: subir lo local (primera vez) */
+        if (platos.length > 0){
+          nubePlatos(); nubeMenus();
+          for (const p of platos){
+            if (p.tieneFoto){
+              const foto = fotos[p.id] || await stGet("foto:" + p.id);
+              if (foto) nubeFoto(p.id, foto);
+            }
+          }
+        }
+        return;
+      }
+      try {
+        recibiendoNube = true;
+        platos = JSON.parse(snap.data().json || "[]");
+        await stSet("platos-meta", JSON.stringify(platos));
+        render();
+      } catch(e){} finally { recibiendoNube = false; }
+    }, () => pintarEstadoNube("error"));
+
+    /* Menús */
+    f.onSnapshot(f.doc(db, baseNube() + "/datos/menus"), async snap => {
+      if (snap.metadata.hasPendingWrites || !snap.exists()) return;
+      try {
+        recibiendoNube = true;
+        menus = JSON.parse(snap.data().json || "[]");
+        await stSet("menus-v1", JSON.stringify(menus));
+      } catch(e){} finally { recibiendoNube = false; }
+    });
+
+    /* Fotos */
+    f.onSnapshot(f.collection(db, baseNube() + "/fotos"), snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      let hayCambios = false;
+      snap.docChanges().forEach(ch => {
+        const id = ch.doc.id;
+        if (ch.type === "removed"){ delete fotos[id]; stDel("foto:" + id); hayCambios = true; }
+        else { const d = ch.doc.data().data; if (d){ fotos[id] = d; stSet("foto:" + id, d); hayCambios = true; } }
+      });
+      if (hayCambios) renderLista();
+    });
+
+    pintarEstadoNube("nube");
+  } catch(e){
+    pintarEstadoNube("error");
+  }
+}
+
+async function nubePlatos(){
+  if (!nube || recibiendoNube) return;
+  try { await nube.f.setDoc(nube.f.doc(nube.db, baseNube() + "/datos/platos"), { json: JSON.stringify(platos), t: Date.now() }); }
+  catch(e){ pintarEstadoNube("error"); }
+}
+async function nubeMenus(){
+  if (!nube || recibiendoNube) return;
+  try { await nube.f.setDoc(nube.f.doc(nube.db, baseNube() + "/datos/menus"), { json: JSON.stringify(menus), t: Date.now() }); }
+  catch(e){}
+}
+async function nubeFoto(id, data){
+  if (!nube || recibiendoNube) return;
+  try {
+    const ref = nube.f.doc(nube.db, baseNube() + "/fotos/" + id);
+    if (data) await nube.f.setDoc(ref, { data, t: Date.now() });
+    else await nube.f.deleteDoc(ref);
+  } catch(e){}
+}
 
 /* ── Compresión de imagen ── */
 function comprimirImagen(file){
@@ -406,7 +541,7 @@ async function borrarPlato(id){
   try {
     platos = platos.filter(p => p.id !== id);
     await guardarPlatosStore();
-    await stDel("foto:"+id);
+    await borrarFotoStore(id);
     delete fotos[id];
     cerrarModal(); render();
     notificar("Plato eliminado");
@@ -556,10 +691,10 @@ function abrirFormulario(id){
       platos = existe ? platos.map(x => x.id === obj.id ? obj : x) : [...platos, obj];
       await guardarPlatosStore();
       if (fotoNueva && fotoNueva !== "BORRAR"){
-        await stSet("foto:" + obj.id, fotoNueva);
+        await guardarFotoStore(obj.id, fotoNueva);
         fotos[obj.id] = fotoNueva;
       } else if (fotoNueva === "BORRAR"){
-        await stDel("foto:" + obj.id);
+        await borrarFotoStore(obj.id);
         delete fotos[obj.id];
       }
       cerrarModal(); render();
@@ -992,7 +1127,7 @@ function abrirCopia(){
       await guardarPlatosStore();
       await guardarMenusStore();
       for (const [id, f] of Object.entries(datos.fotos || {})){
-        await stSet("foto:" + id, f);
+        await guardarFotoStore(id, f);
         fotos[id] = f;
       }
       render();
@@ -1030,6 +1165,7 @@ selAl.onchange = e => { filtroAl = e.target.value; renderLista(); };
   try { platos = pRaw ? JSON.parse(pRaw) : []; } catch { platos = []; }
   try { menus = mRaw ? JSON.parse(mRaw) : []; } catch { menus = []; }
   render();
+  iniciarNube();
   for (const p of platos){
     if (p.tieneFoto){
       const f = await stGet("foto:" + p.id);
