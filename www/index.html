@@ -95,6 +95,19 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
 .hoja .leyenda-titulo{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#66705F;margin-bottom:8px;}
 .hoja .leyenda-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 14px;font-size:11.5px;color:#20291F;}
 .hoja .pie{margin-top:20px;text-align:center;font-size:11px;color:#66705F;font-style:italic;}
+/* ── Cuadro oficial de alérgenos ── */
+.hoja-cuadro{max-width:1050px;}
+.tabla-al{width:100%;border-collapse:collapse;margin-top:18px;}
+.tabla-al th,.tabla-al td{border:1px solid #C9CEC2;padding:4px 6px;font-size:11.5px;}
+.tabla-al thead th{background:#EDF0E8;}
+.tabla-al th.col-al{width:32px;text-align:center;vertical-align:bottom;padding:6px 2px;}
+.tabla-al th.col-al .icono-al{font-size:14px;display:block;margin-top:4px;}
+.tabla-al th.col-al .vert{writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:600;margin:0 auto;display:block;height:84px;}
+.tabla-al td.celda{text-align:center;font-size:13px;color:#20291F;}
+.tabla-al tr.fila-seccion td{background:#2F5233;color:#fff;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;}
+.tabla-al tr.fila-sub td{background:#EDF0E8;font-weight:600;font-size:11px;}
+.tabla-al td.nombre-plato{font-size:12px;}
+.tabla-al tbody tr:nth-child(even) td.nombre-plato,.tabla-al tbody tr:nth-child(even) td.celda{background:#FAFBF8;}
 @media print{
   body > *{display:none !important;}
   body #capaImpresion{display:block !important;position:static;background:#fff;padding:0;overflow:visible;}
@@ -585,6 +598,7 @@ function abrirListaMenus(){
         <h2 class="display" style="font-size:22px;font-weight:700;margin:0;">Menús imprimibles</h2>
         <button class="btn-verde" id="btnNuevoMenu">+ Nuevo menú</button>
       </div>
+      <button class="btn-linea" id="btnCuadro" style="margin-top:12px;width:100%;">📋 Cuadro oficial de alérgenos (imprimible)</button>
       <div style="margin-top:10px;">${filas}</div>
       <div style="display:flex;justify-content:flex-end;margin-top:16px;">
         <button class="btn-linea" id="btnCerrarMenus">Cerrar</button>
@@ -594,6 +608,7 @@ function abrirListaMenus(){
   document.getElementById("veloMenus").onclick = cerrarModal;
   document.getElementById("btnCerrarMenus").onclick = cerrarModal;
   document.getElementById("btnNuevoMenu").onclick = () => abrirEditorMenu(null);
+  document.getElementById("btnCuadro").onclick = abrirCuadro;
   capa.querySelectorAll("[data-ver]").forEach(b => b.onclick = () => { cerrarModal(); previsualizarMenu(b.dataset.ver); });
   capa.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => abrirEditorMenu(b.dataset.edit));
   capa.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
@@ -789,6 +804,7 @@ function previsualizarMenu(id){
       </div>` : ""}
       ${m.pie ? `<div class="pie">${esc(m.pie)}</div>` : ""}
     </div>`;
+  fijarOrientacion(false);
   document.body.classList.add("previsualizando");
   document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
   document.getElementById("impEditar").onclick = () => { cerrarPrevisualizacion(); abrirEditorMenu(id); };
@@ -797,6 +813,117 @@ function previsualizarMenu(id){
 function cerrarPrevisualizacion(){
   document.body.classList.remove("previsualizando");
   document.getElementById("capaImpresion").innerHTML = "";
+}
+
+/* Orientación del papel al imprimir (vertical para menús, horizontal para el cuadro) */
+function fijarOrientacion(apaisado){
+  let st = document.getElementById("estiloPagina");
+  if (!st){ st = document.createElement("style"); st.id = "estiloPagina"; document.head.appendChild(st); }
+  st.textContent = "@media print{@page{size:A4 " + (apaisado ? "landscape" : "portrait") + ";margin:10mm;}}";
+}
+
+/* ══════════════════════════════════════════════════════════
+   CUADRO OFICIAL DE ALÉRGENOS (tabla platos × 14 alérgenos)
+   ══════════════════════════════════════════════════════════ */
+async function abrirCuadro(){
+  if (platos.length === 0){ notificar("Añade platos al recetario antes de generar el cuadro."); return; }
+  const nombreGuardado = (await stGet("config-nombre")) || "";
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo" id="veloCuadro">
+    <div class="modal" onclick="event.stopPropagation()" style="padding:22px 24px 24px;">
+      <h2 class="display" style="font-size:22px;font-weight:700;margin:0;">Cuadro oficial de alérgenos</h2>
+      <p style="font-size:13px;color:var(--suave);margin:8px 0 14px;">
+        Genera la tabla de platos × 14 alérgenos (Reglamento UE 1169/2011) para tener en el establecimiento.
+        Se imprime en horizontal.</p>
+      <div style="display:grid;gap:14px;">
+        <div>
+          <label class="campo-lbl" for="cNombre">Nombre del restaurante (aparece en la cabecera)</label>
+          <input class="campo" id="cNombre" value="${esc(nombreGuardado)}" placeholder="Ej.: Restaurante La Plaza">
+        </div>
+        <div>
+          <label class="campo-lbl">Secciones a incluir</label>
+          <div id="cSecciones" style="display:grid;gap:4px;">
+            ${SECCIONES.map(s => `<label class="fila-check">
+              <input type="checkbox" value="${s.id}" checked> <span>${s.icono} ${esc(s.nombre)}</span>
+            </label>`).join("")}
+          </div>
+        </div>
+        <div id="cError" style="color:#B4483C;font-size:13px;font-weight:600;display:none;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button class="btn-linea" id="cCancelar">Volver</button>
+          <button class="btn-verde" id="cVer">Ver cuadro</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById("veloCuadro").onclick = cerrarModal;
+  document.getElementById("cCancelar").onclick = abrirListaMenus;
+  document.getElementById("cVer").onclick = async () => {
+    const nombre = document.getElementById("cNombre").value.trim();
+    const secs = [...document.querySelectorAll("#cSecciones input:checked")].map(ch => ch.value);
+    const err = document.getElementById("cError");
+    if (secs.length === 0){ err.textContent = "Elige al menos una sección."; err.style.display = "block"; return; }
+    const hayPlatos = platos.some(p => secs.includes(SUB_A_PRINCIPAL[p.subseccion]?.id));
+    if (!hayPlatos){ err.textContent = "No hay platos en las secciones elegidas."; err.style.display = "block"; return; }
+    try { await stSet("config-nombre", nombre); } catch(e){}
+    cerrarModal();
+    previsualizarCuadro(nombre, secs);
+  };
+}
+
+function previsualizarCuadro(nombre, seccionesSel){
+  const cabecera = `<tr>
+    <th style="text-align:left;font-size:12px;">Plato</th>
+    ${ALERGENOS.map(a => `<th class="col-al" title="${esc(a.nombre)}">
+      <span class="vert">${esc(a.nombre)}</span><span class="icono-al">${a.icono}</span>
+    </th>`).join("")}
+  </tr>`;
+
+  let filas = "";
+  SECCIONES.filter(s => seccionesSel.includes(s.id)).forEach(s => {
+    const platosSeccion = platos.filter(p => SUB_A_PRINCIPAL[p.subseccion]?.id === s.id);
+    if (platosSeccion.length === 0) return;
+    filas += `<tr class="fila-seccion"><td colspan="15">${esc(s.nombre)}</td></tr>`;
+    s.sub.forEach(sub => {
+      const dePlatos = platosSeccion.filter(p => p.subseccion === sub.id);
+      if (dePlatos.length === 0) return;
+      filas += `<tr class="fila-sub"><td colspan="15">${esc(sub.nombre)}</td></tr>`;
+      dePlatos.forEach(p => {
+        filas += `<tr>
+          <td class="nombre-plato">${esc(p.nombre)}</td>
+          ${ALERGENOS.map(a => `<td class="celda">${p.alergenos.includes(a.id) ? "●" : ""}</td>`).join("")}
+        </tr>`;
+      });
+    });
+  });
+
+  const hoy = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+  const capa = document.getElementById("capaImpresion");
+  capa.innerHTML = `
+    <div class="barra-impresion" style="max-width:1050px;">
+      <button class="btn-linea" id="impVolver" style="background:#fff;">← Volver</button>
+      <button class="btn-verde" id="impImprimir">🖨 Imprimir / Guardar PDF</button>
+    </div>
+    <div class="hoja hoja-cuadro">
+      <div class="cab">
+        ${nombre ? `<div class="resto">${esc(nombre)}</div>` : ""}
+        <h1 style="font-size:30px;">Cuadro de alérgenos</h1>
+        <div class="fecha">Actualizado a ${esc(hoy)} · Reglamento (UE) n.º 1169/2011</div>
+      </div>
+      <table class="tabla-al">
+        <thead>${cabecera}</thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div class="leyenda">
+        <div class="leyenda-titulo">Cómo leer este cuadro</div>
+        <div style="font-size:11.5px;color:#20291F;">● &nbsp;El plato contiene el alérgeno indicado en la columna.</div>
+      </div>
+      <div class="pie">Documento informativo elaborado por el establecimiento. Ante cualquier duda sobre alergias o intolerancias, consulte a nuestro personal.</div>
+    </div>`;
+  fijarOrientacion(true);
+  document.body.classList.add("previsualizando");
+  document.getElementById("impVolver").onclick = cerrarPrevisualizacion;
+  document.getElementById("impImprimir").onclick = () => window.print();
 }
 
 /* ══════════════════════════════════════════════════════════
