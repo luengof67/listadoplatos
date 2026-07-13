@@ -146,10 +146,13 @@ h2.hh-tras::after{display:none;}
 .pt-linea{font-size:12.5px;color:#333;font-style:italic;margin-top:1px;}
 .pt-linea b{font-style:normal;}
 @media print{
+  html, body{overflow:visible !important;height:auto !important;}
   body > *{display:none !important;}
-  body #capaImpresion{display:block !important;position:static;background:#fff;padding:0;overflow:visible;}
+  body #capaImpresion{display:block !important;position:static !important;inset:auto !important;
+    background:#fff;padding:0;overflow:visible !important;height:auto !important;}
   .barra-impresion{display:none !important;}
-  .hoja{box-shadow:none;max-width:none;margin:0;padding:30px 40px;min-height:0;}
+  .hoja{box-shadow:none;max-width:none;margin:0;padding:30px 40px;min-height:0;overflow:visible !important;}
+  .hoja-salto{page-break-before:always !important;break-before:page !important;}
   @page{margin:12mm;}
 }
 @media (prefers-reduced-motion: reduce){.tarjeta{transition:none;}}
@@ -162,7 +165,7 @@ h2.hh-tras::after{display:none;}
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v10<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v11<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
