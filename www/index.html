@@ -136,6 +136,15 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
 .lh-cuerpo span{font-size:17px;line-height:1;}
 .lh-cuerpo small{font-size:8px;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-top:2px;max-width:70px;text-align:center;}
 .hh-pie{margin-top:26px;border-top:1px solid #999;border-bottom:1px solid #999;padding:7px 4px;text-align:center;font-size:11px;color:#333;line-height:1.5;}
+/* ── Hoja trasera de ingredientes (doble cara) ── */
+.hoja-salto{page-break-before:always;break-before:page;}
+h2.hh-tras{font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;color:#20291F;margin:28px 0 16px;text-decoration:underline;text-underline-offset:5px;text-align:left;}
+h2.hh-tras::after{display:none;}
+.pt{margin:0 0 18px;}
+.pt-nombre{font-size:15.5px;font-weight:700;color:#20291F;}
+.pt-linea{font-size:12.5px;color:#333;font-style:italic;margin-top:1px;}
+.pt-linea b{font-style:normal;}
 @media print{
   body > *{display:none !important;}
   body #capaImpresion{display:block !important;position:static;background:#fff;padding:0;overflow:visible;}
@@ -153,7 +162,7 @@ body.previsualizando #capaImpresion{display:block;position:fixed;inset:0;backgro
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v9<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v10<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -273,6 +282,14 @@ const NOMBRE_NUM = { pescado:"Pescado", frutos_cascara:"Frutos secos", lacteos:"
 const ORDEN_NUM = Object.entries(NUMERO_AL).sort((a,b) => a[1]-b[1]);
 function numerosAlergenos(p){
   return p.alergenos.map(a => NUMERO_AL[a]).filter(Boolean).sort((x,y) => x-y).join("/");
+}
+function leyendaHotel(){
+  return `<div class="leyenda-hotel">
+    ${ORDEN_NUM.map(([alId, num]) => `<div class="lh-item">
+      <span class="lh-num">${num}</span>
+      <span class="lh-cuerpo"><span>${AL_MAP[alId].icono}</span><small>${esc(NOMBRE_NUM[alId])}</small></span>
+    </div>`).join("")}
+  </div>`;
 }
 function fechaHoyLarga(){
   const f = new Date().toLocaleDateString("es-ES", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
@@ -887,6 +904,10 @@ async function abrirEditorMenu(id){
               <label class="campo-lbl" for="mMarca">Texto superior derecho (opcional)</label>
               <input class="campo" id="mMarca" value="${esc(marcaGuardada)}" placeholder="Ej.: by Sercotel">
             </div>
+            <label class="fila-check">
+              <input type="checkbox" id="mHojaTrasera" ${m?.hojaTrasera === false ? "" : "checked"}>
+              <span>Añadir hoja trasera con ingredientes y alérgenos de cada plato (para imprimir a doble cara)</span>
+            </label>
             <div>
               <label class="campo-lbl">Logotipo (opcional, se guarda para todos los menús)</label>
               <div id="mZonaLogo"></div>
@@ -1025,6 +1046,7 @@ async function abrirEditorMenu(id){
       precio: $("mPrecio").value.trim(),
       precio2: $("mPrecio2").value.trim(),
       notaCentral: $("mNotaCentral").value.trim(),
+      hojaTrasera: $("mHojaTrasera").checked,
       fecha: $("mFecha").value.trim(),
       pie: $("mPie").value.trim(),
       apartados: apartados.filter(a => a.titulo.trim() || a.platoIds.length > 0)
@@ -1087,16 +1109,38 @@ async function previsualizarMenu(id){
     const nota = notaPartes.length
       ? `<div class="hh-nota">${esc(notaPartes[0])}${notaPartes[1] ? `<span class="en">${esc(notaPartes.slice(1).join(" · "))}</span>` : ""}</div>`
       : "";
-    const leyenda = `<div class="leyenda-hotel">
-      ${ORDEN_NUM.map(([alId, num]) => `<div class="lh-item">
-        <span class="lh-num">${num}</span>
-        <span class="lh-cuerpo"><span>${AL_MAP[alId].icono}</span><small>${esc(NOMBRE_NUM[alId])}</small></span>
-      </div>`).join("")}
-    </div>`;
     const piePartes = (m.pie || "").split("·").map(s => s.trim()).filter(Boolean);
     const pie = piePartes.length
       ? `<div class="hh-pie">${piePartes.map(t => esc(t)).join("<br>")}</div>`
       : "";
+
+    /* Hoja trasera: detalle de ingredientes y alérgenos por plato */
+    let hojaTrasera = "";
+    if (m.hojaTrasera !== false){
+      const bloquesTras = m.apartados.map(a => {
+        const lineas = a.platoIds.map(pid => {
+          const p = platos.find(x => x.id === pid);
+          if (!p) return "";
+          const nums = numerosAlergenos(p);
+          return `<div class="pt">
+            <div class="pt-nombre">${esc(p.nombre)}</div>
+            <div class="pt-linea"><b>Ingredientes:</b> ${esc(p.ingredientes.join(", "))}</div>
+            <div class="pt-linea"><b>Alérgenos:</b> ${nums || "—"}</div>
+          </div>`;
+        }).join("");
+        if (!lineas) return "";
+        return `<h2 class="hh-tras">${esc(a.titulo.split("·")[0].trim())}</h2>${lineas}`;
+      }).join("");
+      hojaTrasera = `
+      <div class="hoja hoja-hotel hoja-salto">
+        <div class="hh-top">
+          <div>${logo ? `<img class="hh-logo" src="${logo}" alt="Logo">` : `<div class="hh-nombre-resto">${esc(m.subtitulo || "")}</div>`}</div>
+          <div class="hh-marca">${esc(marca)}</div>
+        </div>
+        ${bloquesTras}
+        ${leyendaHotel()}
+      </div>`;
+    }
 
     capa.innerHTML = barra + `
     <div class="hoja hoja-hotel">
@@ -1114,9 +1158,9 @@ async function previsualizarMenu(id){
         ${m.precio ? `<div>${esc(m.precio)}</div>` : ""}
         ${m.precio2 ? `<div>${esc(m.precio2)}</div>` : ""}
       </div>
-      ${leyenda}
+      ${leyendaHotel()}
       ${pie}
-    </div>`;
+    </div>` + hojaTrasera;
   } else {
     /* ── Plantilla clásica ── */
     const usados = new Set();
