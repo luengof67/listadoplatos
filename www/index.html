@@ -174,7 +174,7 @@ h2.hh-tras::after{display:none;}
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v20<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v21<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -259,9 +259,9 @@ const CODIGO_EQUIPO = "jose403060";
    ══════════════════════════════════════════════════════════ */
 const GEMINI_API_KEY_BRUTA = "__CLAVE_GEMINI__";
 const GEMINI_API_KEY = (GEMINI_API_KEY_BRUTA && !GEMINI_API_KEY_BRUTA.includes("__CLAVE")) ? GEMINI_API_KEY_BRUTA : null;
-const GEMINI_MODELO = "gemini-3.5-flash";
-/* Si el modelo principal deja de existir, se prueban estos por orden: */
-const GEMINI_RESPALDO = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3-flash-preview"];
+const GEMINI_MODELO = "gemini-flash-latest";
+/* Si el modelo principal falla o está saturado, se prueban estos por orden: */
+const GEMINI_RESPALDO = ["gemini-flash-latest", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3.5-flash", "gemini-2.0-flash-lite"];
 
 /* ── Secciones ── */
 const SECCIONES = [
@@ -1510,6 +1510,7 @@ async function llamarGemini(base64, prompt, mime){
           await new Promise(r => setTimeout(r, 1500 * (intento + 1))); /* espera creciente y reintenta el mismo modelo */
           continue;
         }
+        if (sobrecarga) break; /* agotados los reintentos: probar el siguiente modelo */
         /* Si el modelo no existe o fue retirado, saltar al siguiente modelo; otros errores paran */
         if (resp.status === 404 || msg.includes("no longer available") || msg.includes("not found") || msg.includes("deprecated")) break;
         return Promise.reject(new Error(ultimoError));
@@ -1551,6 +1552,7 @@ Platos: ${JSON.stringify(nombres)}`;
         const msg = ultimoError.toLowerCase();
         const sobrecarga = resp.status === 503 || resp.status === 429 || msg.includes("overloaded") || msg.includes("high demand") || msg.includes("unavailable") || msg.includes("try again");
         if (sobrecarga && intento < 2){ await new Promise(r => setTimeout(r, 1500 * (intento + 1))); continue; }
+        if (sobrecarga) break; /* agotados los reintentos: probar el siguiente modelo */
         if (resp.status === 404 || msg.includes("no longer available") || msg.includes("not found") || msg.includes("deprecated")) break;
         return Promise.reject(new Error(ultimoError));
       } catch(e){
@@ -1659,6 +1661,7 @@ async function llamarGeminiTexto(prompt){
         const msg = ultimoError.toLowerCase();
         const sobrecarga = resp.status === 503 || resp.status === 429 || msg.includes("overloaded") || msg.includes("high demand") || msg.includes("unavailable") || msg.includes("try again");
         if (sobrecarga && intento < 2){ await new Promise(r => setTimeout(r, 1500 * (intento + 1))); continue; }
+        if (sobrecarga) break; /* agotados los reintentos: probar el siguiente modelo */
         if (resp.status === 404 || msg.includes("no longer available") || msg.includes("not found") || msg.includes("deprecated")) break;
         return Promise.reject(new Error(ultimoError));
       } catch(e){ ultimoError = e.message || "error de red"; if (intento < 2){ await new Promise(r => setTimeout(r, 1200)); continue; } break; }
