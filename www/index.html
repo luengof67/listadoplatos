@@ -207,11 +207,12 @@ h2.hh-tras::after{display:none;}
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v22<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v23<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
       <button id="btnCopia" class="btn-blanco">⇅ Copia</button>
+      <button id="btnAyuda" class="btn-blanco">❓ Guía</button>
       <button id="btnModo" class="btn-blanco">✎ Modo edición</button>
     </div>
   </div>
@@ -2007,6 +2008,51 @@ function abrirCopia(){
 
 /* ── Controles superiores ── */
 document.getElementById("btnCopia").onclick = abrirCopia;
+document.getElementById("btnAyuda").onclick = abrirGuia;
+
+function abrirGuia(){
+  const S = (titulo, cuerpo) => `<div style="margin-bottom:18px;">
+    <div style="font-size:15px;font-weight:700;color:var(--verde);margin-bottom:6px;">${titulo}</div>
+    <div style="font-size:14px;line-height:1.6;color:var(--tinta);">${cuerpo}</div>
+  </div>`;
+  const capa = document.getElementById("capaModal");
+  capa.innerHTML = `<div class="velo" id="veloGuia">
+    <div class="modal ancho" onclick="event.stopPropagation()" style="padding:24px 26px 26px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px;">
+        <h2 class="display" style="font-size:24px;font-weight:700;margin:0;">Guía de uso</h2>
+        <button class="btn-linea" id="guiaCerrarX" style="padding:5px 12px;">✕</button>
+      </div>
+      <p style="font-size:13px;color:var(--suave);margin:0 0 18px;">Todo lo que puedes hacer con el recetario, paso a paso.</p>
+
+      ${S("👁️ Modo consulta y ✎ modo edición", "La app arranca en <b>modo consulta</b>: solo se ven los platos, ideal para el día a día. Para añadir o cambiar cosas, pulsa <b>«✎ Modo edición»</b> arriba a la derecha. En consulta no se puede tocar nada por error.")}
+
+      ${S("🔎 Buscar y filtrar", "Usa las pestañas de arriba (Menú del día, Carta, Tapas, Experiencias, Cafetería) y sus apartados para navegar. El <b>buscador</b> encuentra por nombre, ingrediente, alérgeno o sección: escribe «pescado» y salen todos los que lo llevan; «gambas ajo» busca los que tengan ambos. El <b>filtro de alérgenos</b> muestra solo los platos SIN ese alérgeno (útil cuando un cliente pregunta).")}
+
+      ${S("➕ Añadir platos (4 formas)", "En modo edición, pulsa <b>«+ Añadir plato»</b>:<br>• <b>✍️ Crear a mano</b>: rellenas la ficha tú.<br>• <b>📷 Fotografiar</b>: haces una foto a una carta o pizarra y la IA detecta los platos.<br>• <b>📎 Desde archivo</b>: una imagen, un PDF o un Word.<br>• <b>📋 Pegar texto</b>: copias texto de una web o correo y lo pegas.<br>En los tres últimos, revisas los platos detectados antes de guardarlos (corriges nombre, sección, alérgenos y foto).")}
+
+      ${S("📝 La ficha de un plato", "Cada plato tiene: nombre (y nombre en inglés, con botón <b>🌐 Traducir</b> automático), sección, descripción, precio (opcional), <b>ingredientes</b> (sin cantidades, separados por comas) y <b>alérgenos</b>. Al escribir ingredientes, la app te <b>sugiere</b> los alérgenos probables — tú los confirmas. Puedes añadir una <b>foto</b> del plato. Con <b>«Duplicar»</b> creas una variante rápida sin reescribir todo.")}
+
+      ${S("🖨 Menús imprimibles", "Pulsa <b>«🖨 Menús imprimibles»</b> → «+ Nuevo menú». Eliges una <b>plantilla</b> (clásica, hotel bilingüe, pizarra, cafetería en columnas o elegante), pones título, fecha y precios, y marcas los platos de cada apartado (cada apartado muestra solo su sección). Al guardar se ve la vista previa y puedes <b>Imprimir o Guardar como PDF</b>. Con <b>«⧉ Repetir»</b> reutilizas un menú de otro día cambiando solo la fecha y algún plato.")}
+
+      ${S("📋 Cuadro oficial de alérgenos", "Dentro de «Menús imprimibles», el botón <b>«📋 Cuadro oficial de alérgenos»</b> genera la tabla de platos × 14 alérgenos (la de las inspecciones), con la fecha automática. Se imprime en horizontal.")}
+
+      ${S("☁️ Sincronización", "Todos los dispositivos con la app comparten el mismo recetario <b>en tiempo real</b>: si cocina añade un plato, sala lo ve al instante. Funciona también <b>sin internet</b> (se pone al día al recuperar cobertura). El estado se ve en la cabecera: ☁️ sincronizado, 🔒 solo en este dispositivo o ⚠️ sin conexión.")}
+
+      ${S("⇅ Copia de seguridad", "El botón <b>«⇅ Copia»</b> exporta todo el recetario a un archivo (para guardarlo o pasarlo a otro sitio) e importa copias. Con la sincronización activada tus datos ya están a salvo en la nube, pero una copia extra nunca está de más.")}
+
+      ${S("💻 En el ordenador", "La misma app funciona en el PC (navegador), sincronizada con los móviles. Para imprimir menús a doble cara, el PC es lo más cómodo. Recuerda entrar en <b>modo edición</b> también aquí para ver el botón de añadir.")}
+
+      ${S("⚠️ Importante sobre alérgenos", "La detección automática de alérgenos (por ingredientes o por foto) es <b>orientativa</b>. La declaración final debe confirmarla siempre quien conoce la receta real: aceites, fondos, trazas de la freidora, etc. Revisa cada ficha.")}
+
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button class="btn-verde" id="guiaCerrar">Entendido</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById("veloGuia").onclick = cerrarModal;
+  document.getElementById("guiaCerrar").onclick = cerrarModal;
+  document.getElementById("guiaCerrarX").onclick = cerrarModal;
+}
 document.getElementById("btnModo").onclick = () => {
   modo = modo === "consulta" ? "edicion" : "consulta";
   const b = document.getElementById("btnModo");
