@@ -174,7 +174,7 @@ h2.hh-tras::after{display:none;}
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v19<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v20<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -188,7 +188,7 @@ h2.hh-tras::after{display:none;}
   <div id="tabsSecciones" class="fila-tabs"></div>
   <div id="tabsSub" class="fila-subs" style="display:none;"></div>
   <div class="fila-filtros">
-    <input id="buscador" class="campo" style="flex:1 1 220px;" placeholder="Buscar plato o ingrediente…">
+    <input id="buscador" class="campo" style="flex:1 1 220px;" placeholder="Buscar por plato, ingrediente, alérgeno o sección…">
     <select id="filtroAl" class="campo" style="flex:0 1 260px;"></select>
     <button id="btnNuevo" class="btn-verde" style="display:none;">+ Añadir plato</button>
     <button id="btnEscanear" class="btn-linea" style="display:none;">📷 Desde foto</button>
@@ -537,8 +537,12 @@ function platosVisibles(){
     if (subseccion !== "todas" && p.subseccion !== subseccion) return false;
     if (filtroAl && p.alergenos.includes(filtroAl)) return false;
     if (busqueda){
-      const t = (p.nombre + " " + p.ingredientes.join(" ")).toLowerCase();
-      if (!t.includes(busqueda.toLowerCase())) return false;
+      const nombresAl = p.alergenos.map(a => AL_MAP[a]?.nombre || "").join(" ");
+      const seccionTxt = (SUB_A_PRINCIPAL[p.subseccion]?.nombre || "") + " " + (NOMBRE_SUB[p.subseccion] || "");
+      const t = (p.nombre + " " + (p.nombreEn || "") + " " + p.ingredientes.join(" ") + " " + nombresAl + " " + seccionTxt).toLowerCase();
+      /* cada palabra buscada debe aparecer (permite "merluza sin gluten"→ no, pero "pescado carta" sí) */
+      const palabras = busqueda.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!palabras.every(w => t.includes(w))) return false;
     }
     return true;
   });
@@ -616,6 +620,7 @@ function abrirFicha(id){
         <div style="display:flex;gap:10px;margin-top:24px;justify-content:flex-end;">
           ${modo === "edicion" ? `
             <button class="btn-linea peligro" id="btnBorrar">Eliminar</button>
+            <button class="btn-linea" id="btnDuplicar">Duplicar</button>
             <button class="btn-linea" id="btnEditar">Editar</button>` : ""}
           <button class="btn-verde" id="btnCerrar">Cerrar</button>
         </div>
@@ -626,10 +631,28 @@ function abrirFicha(id){
   document.getElementById("btnCerrar").onclick = cerrarModal;
   if (modo === "edicion"){
     document.getElementById("btnBorrar").onclick = () => borrarPlato(id);
+    document.getElementById("btnDuplicar").onclick = () => duplicarPlato(id);
     document.getElementById("btnEditar").onclick = () => { cerrarModal(); abrirFormulario(id); };
   }
 }
 function cerrarModal(){ document.getElementById("capaModal").innerHTML = ""; }
+
+async function duplicarPlato(id){
+  const p = platos.find(x => x.id === id); if (!p) return;
+  const copia = {
+    ...p,
+    id: "p" + Date.now(),
+    nombre: p.nombre + " (copia)",
+    tieneFoto: false, /* la copia empieza sin foto; se le pone una nueva si se quiere */
+  };
+  platos.push(copia);
+  try {
+    await guardarPlatosStore();
+    cerrarModal(); render();
+    notificar("Plato duplicado — edítalo para ajustarlo");
+    abrirFormulario(copia.id); /* abre directamente la copia para editarla */
+  } catch { notificar("No se pudo duplicar."); }
+}
 
 async function borrarPlato(id){
   if (!confirm("¿Eliminar este plato de forma permanente?")) return;
@@ -848,6 +871,7 @@ function abrirListaMenus(){
         </div>
         <button class="btn-linea" data-ver="${m.id}" style="padding:6px 12px;">🖨 Ver</button>
         <button class="btn-linea" data-edit="${m.id}" style="padding:6px 12px;">Editar</button>
+        <button class="btn-linea" data-dup="${m.id}" style="padding:6px 12px;" title="Crear uno nuevo a partir de este">⧉ Repetir</button>
         <button class="btn-linea peligro" data-del="${m.id}" style="padding:6px 12px;">✕</button>
       </div>`).join("");
 
@@ -902,6 +926,19 @@ function abrirListaMenus(){
   };
   capa.querySelectorAll("[data-ver]").forEach(b => b.onclick = () => { cerrarModal(); previsualizarMenu(b.dataset.ver); });
   capa.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => abrirEditorMenu(b.dataset.edit));
+  capa.querySelectorAll("[data-dup]").forEach(b => b.onclick = async () => {
+    const orig = menus.find(x => x.id === b.dataset.dup); if (!orig) return;
+    const copia = {
+      ...orig,
+      id: "m" + Date.now(),
+      creado: Date.now(),
+      apartados: orig.apartados.map(a => ({ titulo: a.titulo, platoIds: [...a.platoIds] })),
+      fecha: "", /* fecha en blanco para que pongas la del nuevo día */
+    };
+    menus.push(copia);
+    try { await guardarMenusStore(); } catch(e){}
+    abrirEditorMenu(copia.id); /* abre la copia para ajustar fecha y platos */
+  });
   capa.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
     if (!confirm("¿Eliminar este menú? Los platos del recetario no se borran.")) return;
     menus = menus.filter(m => m.id !== b.dataset.del);
