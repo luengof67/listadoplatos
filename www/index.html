@@ -47,6 +47,18 @@ input.campo:focus, textarea.campo:focus, select.campo:focus{border-color:var(--v
 .fila-subs{display:flex;gap:8px;overflow-x:auto;padding:8px 0 4px;}
 .fila-filtros{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 6px;}
 .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:10px;}
+/* ── Lista de platos compacta (mismo formato que la carta pública) ── */
+.lista-platos-app{display:flex;flex-direction:column;gap:10px;margin-top:10px;max-width:720px;}
+.tarjeta-lista{background:var(--carta);border:1px solid var(--linea);border-radius:14px;overflow:hidden;
+  display:flex;align-items:stretch;cursor:pointer;transition:transform .12s ease, box-shadow .12s ease;}
+.tarjeta-lista:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(32,41,31,.10);}
+.lp-foto-caja{width:104px;flex-shrink:0;background:#EDF0E8;display:flex;align-items:center;justify-content:center;padding:6px;}
+.lp-foto{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:8px;display:block;}
+.lp-foto-caja.lp-sinfoto{font-size:30px;}
+.lp-cuerpo{padding:11px 14px 12px;flex:1;min-width:0;}
+.lp-fila1{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
+.lp-precio{font-family:'Fraunces',Georgia,serif;font-size:16px;font-weight:700;color:var(--verde);white-space:nowrap;}
+@media (prefers-reduced-motion: reduce){.tarjeta-lista{transition:none;}}
 .vacio{padding:60px 20px;text-align:center;color:var(--suave);}
 .velo{position:fixed;inset:0;background:rgba(32,41,31,.55);z-index:50;display:flex;
   align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
@@ -217,7 +229,7 @@ h2.hh-tras::after{display:none;}
   <div class="cabecera-int">
     <div>
       <div class="display" style="font-size:30px;font-weight:700;line-height:1.1;">Recetario de cocina</div>
-      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v26<span id="estadoNube"></span></div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px;">Platos, ingredientes, alérgenos y menús imprimibles · v27<span id="estadoNube"></span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button id="btnMenus" class="btn-blanco">🖨 Menús imprimibles</button>
@@ -631,21 +643,26 @@ function renderLista(){
     </div>`;
     return;
   }
-  cont.innerHTML = `<div class="rejilla">` + vis.map(p => {
+  cont.innerHTML = `<div class="lista-platos-app">` + vis.map(p => {
     const foto = fotos[p.id];
     const cab = foto
-      ? `<img src="${foto}" alt="${esc(p.nombre)}" style="width:100%;height:150px;object-fit:cover;display:block;">`
-      : `<div style="height:90px;background:linear-gradient(135deg,#EDF0E8,#E2E7DB);display:flex;align-items:center;justify-content:center;font-size:32px;">${SUB_A_PRINCIPAL[p.subseccion]?.icono || "🍽️"}</div>`;
-    return `<div class="tarjeta" data-id="${p.id}">
+      ? `<div class="lp-foto-caja"><img src="${foto}" alt="${esc(p.nombre)}" class="lp-foto"></div>`
+      : `<div class="lp-foto-caja lp-sinfoto">${SUB_A_PRINCIPAL[p.subseccion]?.icono || "🍽️"}</div>`;
+    return `<div class="tarjeta-lista" data-id="${p.id}">
       ${cab}
-      <div style="padding:12px 14px 14px;">
-        <div class="etiqueta-sec">${esc(SUB_A_PRINCIPAL[p.subseccion]?.nombre || "")} · ${esc(NOMBRE_SUB[p.subseccion] || "")}</div>
-        <div class="display" style="font-size:18px;font-weight:600;margin:3px 0 8px;">${esc(p.nombre)}</div>
-        <div class="grupo-chips" style="gap:4px;">${chipsAlergenos(p)}</div>
+      <div class="lp-cuerpo">
+        <div class="lp-fila1">
+          <div style="min-width:0;">
+            <div class="etiqueta-sec">${esc(SUB_A_PRINCIPAL[p.subseccion]?.nombre || "")} · ${esc(NOMBRE_SUB[p.subseccion] || "")}</div>
+            <div class="display" style="font-size:17px;font-weight:600;margin:1px 0 0;">${esc(p.nombre)}</div>
+          </div>
+          ${p.precio ? `<div class="lp-precio">${esc(p.precio)}</div>` : ""}
+        </div>
+        <div class="grupo-chips" style="gap:4px;margin-top:7px;">${chipsAlergenos(p)}</div>
       </div>
     </div>`;
   }).join("") + `</div>`;
-  cont.querySelectorAll(".tarjeta").forEach(t => t.onclick = () => abrirFicha(t.dataset.id));
+  cont.querySelectorAll(".tarjeta-lista").forEach(t => t.onclick = () => abrirFicha(t.dataset.id));
 }
 
 function render(){ renderTabs(); renderLista(); }
